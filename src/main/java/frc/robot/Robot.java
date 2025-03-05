@@ -21,6 +21,9 @@ import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
+
+import org.opencv.core.Mat;
+
 import com.revrobotics.spark.SparkBase;
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -79,20 +82,35 @@ public class Robot extends TimedRobot {
     return k;
 }
 
-  // Method to drive straight for a number of inches 
-  // at a given time at a given motor speed (0 to 1)
+  // Method to drive straight for a number of inches
+  // To go backwards, enter a negative distance 
+  // at a given time at a given motor speed (0 to 1]
   // The method assumes equal accel and decel ramps at the beginning and end of the cycle
   private void driveStraight(double distance_in, double motorSpeed_M) {
-    double startTime = Timer.getFPGATimestamp();
-    double driveTime_s = 0; //Initialize the drive timer for this function
-    double loop_s = getPeriod(); // get loop rate in seconds, typically 0.02s at 50Hz
-    double k = k_MotorSpeed(); // calculate motor speed conversion factor
-    
+   
     // set accel and decel rate in inches per second per second
     // Should be between 100 and 600
     // Calibrate as large as possible without slipping
     double accel_in_s2 = 200; 
+
+    double loop_s = getPeriod(); // automatically get loop rate in seconds, typically 0.02s at 50Hz
+    double k = k_MotorSpeed(); // calculate motor speed conversion factor
     
+    // Negative motor speed is not supported
+    if (motorSpeed_M <= 0) {
+      safeState(); // set motors to a safe state  
+      System.err.println("Error: Motor speed is negative in driveStraight");
+      return;
+    }
+
+    // Convert negative distance to direction
+    boolean forward = true;
+    if (distance_in < 0) {
+      // backwards
+      forward = false;
+      distance_in = Math.abs(distance_in);
+    }
+
     // Convert motor speed command to inches per second
     double v_command_ips = k * motorSpeed_M;
 
@@ -104,7 +122,7 @@ public class Robot extends TimedRobot {
     double v_max_ips = Math.sqrt(accel_in_s2 * distance_in);
     double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
     double arb_MotorSpeed_M = v_arb_command_ips / k; // arbitrated max motor speed
- 
+
     if (v_arb_command_ips <= 0) {
       safeState(); // set motors to a safe state  
       System.err.println("Error: Arbitrated motor speed is zero in driveStraight");
@@ -116,6 +134,10 @@ public class Robot extends TimedRobot {
 
     // Calculate total time
     double t_total_s = distance_in/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
+
+    // Initialize drive timer
+    double startTime = Timer.getFPGATimestamp();
+    double driveTime_s = 0; //Initialize the drive timer for this function
 
     double motorCommand = 0; // Initialize the motor command to zero
     while (driveTime_s < t_total_s) {
@@ -137,10 +159,116 @@ public class Robot extends TimedRobot {
         motorCommand = arb_MotorSpeed_M;
       }
 
-      % Set the motor speed
-      setLeftSpeed(motorCommand);
-      setRightSpeed(motorCommand);
+      // Set the motor speed
+      if (forward){
+        // drive forward
+        setLeftSpeed(motorCommand);
+        setRightSpeed(motorCommand);
+
+      } else {
+        // drive backward
+        setLeftSpeed(-motorCommand);
+        setRightSpeed(-motorCommand);
+      }
       
+    }
+    setLeftSpeed(0);
+    setRightSpeed(0);
+  }
+
+  // Method to turn a number of degrees to the right
+  // For left turns, enter a negative value
+  // Degrees should be between -360 and 360
+  // at a given motor speed (0 to 1]
+  // The method uses identical accel and decel ramps at the beginning and end of the cycle
+  private void driveTurn(double angle_deg, double motorSpeed_M) {
+    
+    // Set robot track width in inches
+    double trackwidth_in = 24;
+
+    // set accel and decel rate in inches per second per second
+    // Should be between 100 and 600
+    // Calibrate as large as possible without slipping
+    double accel_in_s2 = 200; 
+    
+    double loop_s = getPeriod(); // automatically get loop rate in seconds, typically 0.02s at 50Hz
+    double k = k_MotorSpeed(); // calculate motor speed conversion factor
+    
+    // Negative motor speed is not supported
+    if (motorSpeed_M <= 0) {
+      safeState(); // set motors to a safe state  
+      System.err.println("Error: Motor speed is negative in driveStraight");
+      return;
+    }
+
+    // Convert motor speed command to inches per second
+    double v_command_ips = k * motorSpeed_M;
+
+    // Convert acceleration rate to motor step per loop
+    double M_step = (accel_in_s2 * loop_s ) / k;
+    
+    // Convert turn angle to arc length and direction
+    boolean rightturn = true;
+    if (angle_deg < 0) {
+      // Left turn
+      rightturn = false;
+      angle_deg = Math.abs(angle_deg);
+    }
+    double arclength_in = (trackwidth_in * Math.PI * angle_deg) / 360.0;
+
+    // Maximum velocity that can be achieved in the distance given
+    // assuming accel rate is equal to decel rate
+    double v_max_ips = Math.sqrt(accel_in_s2 * arclength_in);
+    double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
+    double arb_MotorSpeed_M = v_arb_command_ips / k; // arbitrated max motor speed
+ 
+    if (v_arb_command_ips <= 0) {
+      safeState(); // set motors to a safe state  
+      System.err.println("Error: Arbitrated motor speed is zero in driveStraight");
+      return;
+    }
+
+    // Calculate ramp time
+    double t_accel_s = v_arb_command_ips / accel_in_s2;
+
+    // Calculate total time
+    double t_total_s = arclength_in/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
+
+    // Initialize drive timer
+    double startTime = Timer.getFPGATimestamp();
+    double driveTime_s = 0; //Initialize the drive timer for this function
+
+    double motorCommand = 0; // Initialize the motor command to zero
+    while (driveTime_s < t_total_s) {
+      // Every loop in while driving straight
+      
+      // Calculate current time
+      driveTime_s = Timer.getFPGATimestamp() - startTime;
+
+      if (driveTime_s < t_accel_s) { 
+        // Ramp up speed
+        motorCommand = motorCommand + M_step;
+
+      } else if (driveTime_s >= (t_total_s - t_accel_s)) {
+        // Ramp down speed
+        motorCommand = motorCommand - M_step;
+
+      } else {
+        // constant velocity
+        motorCommand = arb_MotorSpeed_M;
+      }
+
+      // Set the motor speed
+      if (rightturn){
+        // Right turn
+        setLeftSpeed(motorCommand);
+        setRightSpeed(-motorCommand);
+
+      } else {
+        // Left turn
+        setLeftSpeed(-motorCommand);
+        setRightSpeed(motorCommand);
+      }
     }
     setLeftSpeed(0);
     setRightSpeed(0);
@@ -233,7 +361,13 @@ public class Robot extends TimedRobot {
     double dist_leg1 = start_to_reef - stop_margin; // stop just before the reef
     
     // drive from start line to reef
-    driveStraight(double 87, 1.0)
+    driveStraight(dist_leg1, 0.25)
+
+    // drive from start line to reef
+    driveStraight(-12, 0.25)
+
+    // turn right 90 degrees
+    driveTurn(90, 0.25);
     
   }
 
