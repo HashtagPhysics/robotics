@@ -4,28 +4,103 @@
 
 package frc.robot;
 
+import edu.wpi.first.math.filter.SlewRateLimiter;
+import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.motorcontrol.MotorControllerGroup;
+import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
+import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
+/* REV Imports */
+//import com.revrobotics.CANSparkBase.IdleMode;
+
+import com.revrobotics.spark.SparkMax;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
+import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.SparkLowLevel.MotorType;
+import com.revrobotics.spark.SparkBase;
 /**
- * The methods in this class are called automatically corresponding to each mode, as described in
- * the TimedRobot documentation. If you change the name of this class or the package after creating
- * this project, you must also update the Main.java file in the project.
+ * The VM is configured to automatically run this class, and to call the functions corresponding to
+ * each mode, as described in the TimedRobot documentation. If you change the name of this class or
+ * the package after creating this project, you must also update the build.gradle file in the
+ * project.
  */
 public class Robot extends TimedRobot {
-  private Command m_autonomousCommand;
+  /* Set up our motors */
+  SparkMax driveLeftA = new SparkMax(1,MotorType.kBrushed);
+  SparkMax driveLeftB = new SparkMax(3,MotorType.kBrushed);
+  SparkMax driveRightA = new SparkMax(4,MotorType.kBrushed);
+  SparkMax driveRightB = new SparkMax(2,MotorType.kBrushed);
+  SparkMax turningArm = new SparkMax(6, MotorType.kBrushed);
 
-  private final RobotContainer m_robotContainer;
 
+//cts
+  private void setLeftSpeed(double speed)
+  {
+    //Change bias to offset drift on Motors
+    //Don't change bias more than between .9 and 1.1
+    double leftWheelBias = 1.07;
+    driveLeftA.set(-speed * leftWheelBias);
+    driveLeftB.set(-speed * leftWheelBias);
+  };
+  private void setRightSpeed(double speed)
+  {
+    driveRightA.set(-speed);
+    driveRightB.set(-speed);
+  };
+
+
+  /* Motoin FIlters */
+  SlewRateLimiter driveFilter = new SlewRateLimiter(4);
+  SlewRateLimiter turnFilter = new SlewRateLimiter(4);  
+
+  /* set up our controllers */
+  XboxController driverController = new XboxController(0);
+  Joystick opController = new Joystick(1);
+
+  /* Global variables */
+  double driveFactor = 0.6;
+  double autoStart = 0;
+  private static final String kDefaultAuto = "Default";
+  private static final String kCustomAuto = "My Auto";
+  private String m_autoSelected;
+  private final SendableChooser<String> m_chooser = new SendableChooser<>();
+  
+  
+  
+  SparkMaxConfig configInverted = new SparkMaxConfig();
+  SparkMaxConfig config = new SparkMaxConfig();
+  SparkBase.ResetMode resetMode;
+  SparkBase.PersistMode persistMode;
   /**
    * This function is run when the robot is first started up and should be used for any
    * initialization code.
    */
-  public Robot() {
-    // Instantiate our RobotContainer.  This will perform all our button bindings, and put our
-    // autonomous chooser on the dashboard.
-    m_robotContainer = new RobotContainer();
+  @Override
+  public void robotInit() {
+    /* Set up our motor settigns*/
+
+
+    //Sets the settings on the SparkMax configs and applies them to the motors
+    configInverted.inverted(true);
+    configInverted.idleMode(IdleMode.kBrake);
+    config.inverted(false);
+    config.idleMode(IdleMode.kBrake);
+    
+    driveLeftA.configure(configInverted, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
+    driveLeftB.configure(configInverted, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
+    driveRightA.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
+    driveRightB.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
+    
+
+
+
+    m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
+    m_chooser.addOption("My Auto", kCustomAuto);
+    SmartDashboard.putData("Auto choices", m_chooser);
   }
 
   /**
@@ -36,56 +111,132 @@ public class Robot extends TimedRobot {
    * SmartDashboard integrated updating.
    */
   @Override
-  public void robotPeriodic() {
-    // Runs the Scheduler.  This is responsible for polling buttons, adding newly-scheduled
-    // commands, running already-scheduled commands, removing finished or interrupted commands,
-    // and running subsystem periodic() methods.  This must be called from the robot's periodic
-    // block in order for anything in the Command-based framework to work.
-    CommandScheduler.getInstance().run();
-  }
+  public void robotPeriodic() {}
 
-  /** This function is called once each time the robot enters Disabled mode. */
-  @Override
-  public void disabledInit() {}
-
-  @Override
-  public void disabledPeriodic() {}
-
-  /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
+  /**
+   * This autonomous (along with the chooser code above) shows how to select between different
+   * autonomous modes using the dashboard. The sendable chooser code works with the Java
+   * SmartDashboard. If you prefer the LabVIEW Dashboard, remove all of the chooser code and
+   * uncomment the getString line to get the auto name from the text box below the Gyro
+   *
+   * <p>You can add additional auto modes by adding additional comparisons to the switch structure
+   * below with additional strings. If using the SendableChooser make sure to add them to the
+   * chooser code above as well.
+   */
   @Override
   public void autonomousInit() {
-    m_autonomousCommand = m_robotContainer.getAutonomousCommand();
+    m_autoSelected = m_chooser.getSelected();
+    // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
+    System.out.println("Auto selected: " + m_autoSelected);
 
-    // schedule the autonomous command (example)
-    if (m_autonomousCommand != null) {
-      m_autonomousCommand.schedule();
-    }
+    autoStart = Timer.getFPGATimestamp();
   }
 
   /** This function is called periodically during autonomous. */
+  //CTS
   @Override
-  public void autonomousPeriodic() {}
-
-  @Override
-  public void teleopInit() {
-    // This makes sure that the autonomous stops running when
-    // teleop starts running. If you want the autonomous to
-    // continue until interrupted by another command, remove
-    // this line or comment it out.
-    if (m_autonomousCommand != null) {
-      m_autonomousCommand.cancel();
+  public void autonomousPeriodic() {
+    double autoElapsed = Timer.getFPGATimestamp() - autoStart;
+    if(autoElapsed<2.72)
+    {
+      setLeftSpeed(-0.25);
+      setRightSpeed(-0.25);
     }
+    /*else if (autoElapsed<2) 
+    {
+      setLeftSpeed(0.3);
+      setRightSpeed(-0.3);
+    }
+    else if (autoElapsed<3) 
+    {
+      setLeftSpeed(-0.3);
+      setRightSpeed(0.3);
+    }*/
+    else
+    {
+      setLeftSpeed(0);
+      setRightSpeed(0);
+    }
+    // switch (m_autoSelected) {
+    //   case kCustomAuto:
+    //     // Put custom auto code here
+    //     break;
+    //   case kDefaultAuto:
+    //   default:
+    //     // Put default auto code here
+    //     break;
+    
   }
+
+  /** This function is called once when teleop is enabled. */
+  @Override
+  public void teleopInit() {}
 
   /** This function is called periodically during operator control. */
   @Override
-  public void teleopPeriodic() {}
+  public void teleopPeriodic() {
+    /* Driver contols */
 
-  @Override
-  public void testInit() {
-    // Cancels all running commands at the start of test mode.
-    CommandScheduler.getInstance().cancelAll();
+//Percentage of motor speed ONLY SET BETWEEN 0 and 1
+//CTS
+    if(driverController.getLeftBumper()==true)
+      driveFactor = 0.7;
+    else
+      driveFactor= 0.5;
+    
+
+
+    double forward = driveFilter.calculate(driverController.getRawAxis(1));
+    double turn = turnFilter.calculate(driverController.getRawAxis(4));
+    double driveLeftPower = forward - turn;
+    double driveRightPower = forward + turn;
+    //driveLeft.set(driveLeftPower*driveFactor);
+    //driveRight.set(driveRightPower*driveFactor);
+    setLeftSpeed(driveLeftPower*driveFactor);
+    setRightSpeed(driveRightPower*driveFactor);
+
+    /* Op controlls */
+
+    //Turning speed Control only change in the IF commands
+    double turningSpeed = 0;
+    //^^^^ Dont change this one
+    //turningArm.set(opController.getTwist());
+    //CTS
+    if(opController.getRawButton(5))
+    {
+      turningSpeed = -0.5;
+    }
+    else if(opController.getRawButton(6))
+    {
+      turningSpeed = -0.5;
+    }
+    else if(opController.getRawButton(3))
+    {
+      turningSpeed = 0.5;
+    }
+    else if(opController.getRawButton(4))
+    {
+      turningSpeed = 0.5;
+    }
+    else
+    {
+      //Do not change away from 0 
+      turningSpeed = 0;
+    }
+    turningArm.set(turningSpeed);
   }
+
+  /** This function is called once when the robot is disabled. */
+  @Override
+  public void disabledInit() {}
+
+  /** This function is called periodically when disabled. */
+  @Override
+  public void disabledPeriodic() {}
+
+  /** This function is called once when test mode is enabled. */
+  @Override
+  public void testInit() {}
 
   /** This function is called periodically during test mode. */
   @Override
