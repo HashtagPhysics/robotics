@@ -36,7 +36,6 @@ public class Robot extends TimedRobot {
   SparkMax driveRightB = new SparkMax(2,MotorType.kBrushed);
   SparkMax turningArm = new SparkMax(6, MotorType.kBrushed);
 
-
 //cts
   private void setLeftSpeed(double speed)
   {
@@ -52,14 +51,33 @@ public class Robot extends TimedRobot {
     driveRightB.set(-speed);
   };
 
+  public void safeState() {
+    // Disable all motors
+    // This function is used to set the robot to a safe state without disabling it
+    driveLeftA.set(0.0);
+    driveLeftB.set(0.0);
+    driveRightA.set(0.0);
+    driveRightB.set(0.0);
+    turningArm.set(0.0);
+
+    System.out.println("Unknown Error: All motors set to zero.");
+}
 
   public double k_MotorSpeed() {
-    
     // Add voltage compensation logic later, if needed
-
     // factor k = speed in inches per second / motor speed command
-    return 149; 
-  }
+    double k = 149;
+
+    double k_default = 150; // only returned in case of error
+
+    if (k == 0) {
+      safeState(); // set motors to a safe state  
+      System.err.println("Error: k_MotorSpeed() returned zero!");
+      k = k_default;
+    }
+
+    return k;
+}
 
   // Method to drive straight for a number of inches 
   // at a given time at a given motor speed (0 to 1)
@@ -87,6 +105,12 @@ public class Robot extends TimedRobot {
     double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
     double arb_MotorSpeed_M = v_arb_command_ips / k; // arbitrated max motor speed
  
+    if (v_arb_command_ips <= 0) {
+      safeState(); // set motors to a safe state  
+      System.err.println("Error: Arbitrated motor speed is zero in driveStraight");
+      return;
+    }
+
     // Calculate ramp time
     double t_accel_s = v_arb_command_ips / accel_in_s2;
 
