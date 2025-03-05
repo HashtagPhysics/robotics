@@ -226,36 +226,14 @@ public class Robot extends TimedRobot {
   //CTS
   @Override
   public void autonomousPeriodic() {
-    double autoElapsed = Timer.getFPGATimestamp() - autoStart;
+    // Autonomous Strategy 2
+    double start_to_reef = 88; // front of the start line to the reef
     
-    if(autoElapsed<2.72)
-    {
-      setLeftSpeed(-0.25);
-      setRightSpeed(-0.25);
-    }
-    /*else if (autoElapsed<2) 
-    {
-      setLeftSpeed(0.3);
-      setRightSpeed(-0.3);
-    }
-    else if (autoElapsed<3) 
-    {
-      setLeftSpeed(-0.3);
-      setRightSpeed(0.3);
-    }*/
-    else
-    {
-      setLeftSpeed(0);
-      setRightSpeed(0);
-    }
-    // switch (m_autoSelected) {
-    //   case kCustomAuto:
-    //     // Put custom auto code here
-    //     break;
-    //   case kDefaultAuto:
-    //   default:
-    //     // Put default auto code here
-    //     break;
+    double stop_margin = 1; // stop margin from target in inches 
+    double dist_leg1 = start_to_reef - stop_margin; // stop just before the reef
+    
+    // drive from start line to reef
+    driveStraight(double 87, 1.0)
     
   }
 
@@ -275,8 +253,6 @@ public class Robot extends TimedRobot {
     else
       driveFactor= 0.5;
     
-
-
     double forward = driveFilter.calculate(driverController.getRawAxis(1));
     double turn = turnFilter.calculate(driverController.getRawAxis(4));
     double driveLeftPower = forward - turn;
