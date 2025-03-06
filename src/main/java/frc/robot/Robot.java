@@ -108,12 +108,12 @@ public class Robot extends TimedRobot {
     if (distance_command < 0) {
       // backwards
       forward = false;
-      distance = Math.abs(distance_command);
     }
+    double distance = Math.abs(distance_command);
 
     // This adjustment factor accounts for estimated error in the ramp rate function
     // If controller loop rate is changed, this factor will change
-    double distance = distance + 1.65 * motorSpeed_M;
+    distance = distance + 1.65 * motorSpeed_M;
 
     // Convert motor speed command to inches per second
     double v_command_ips = k * motorSpeed_M;
@@ -218,9 +218,10 @@ public class Robot extends TimedRobot {
     boolean rightturn = true;
     if (angle_command < 0) {
       // Left turn
-      rightturn = false;
-      angle = Math.abs(angle_command);
+      rightturn = false;      
     }
+    double angle = Math.abs(angle_command);
+
     double arclength = (trackwidth_in * Math.PI * angle) / 360.0;
 
     // This adjustment factor accounts for estimated error in the ramp rate function
