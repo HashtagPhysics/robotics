@@ -86,7 +86,7 @@ public class Robot extends TimedRobot {
   // To go backwards, enter a negative distance 
   // at a given time at a given motor speed (0 to 1]
   // The method assumes equal accel and decel ramps at the beginning and end of the cycle
-  private void driveStraight(double distance_in, double motorSpeed_M) {
+  private void driveStraight(double distance_command, double motorSpeed_M) {
    
     // set accel and decel rate in inches per second per second
     // Should be between 100 and 600
@@ -105,10 +105,10 @@ public class Robot extends TimedRobot {
 
     // Convert negative distance to direction
     boolean forward = true;
-    if (distance_in < 0) {
+    if (distance_command < 0) {
       // backwards
       forward = false;
-      distance = Math.abs(distance_in);
+      distance = Math.abs(distance_command);
     }
 
     // This adjustment factor accounts for estimated error in the ramp rate function
@@ -163,6 +163,9 @@ public class Robot extends TimedRobot {
         motorCommand = arb_MotorSpeed_M;
       }
 
+      // Clip motor command between 0 and 1;
+      motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
+
       // Set the motor speed
       if (forward){
         // drive forward
@@ -185,7 +188,7 @@ public class Robot extends TimedRobot {
   // Degrees should be between -360 and 360
   // at a given motor speed (0 to 1]
   // The method uses identical accel and decel ramps at the beginning and end of the cycle
-  private void driveTurn(double angle_deg, double motorSpeed_M) {
+  private void driveTurn(double angle_command, double motorSpeed_M) {
     
     // Set robot track width in inches
     double trackwidth_in = 24;
@@ -213,16 +216,20 @@ public class Robot extends TimedRobot {
     
     // Convert turn angle to arc length and direction
     boolean rightturn = true;
-    if (angle_deg < 0) {
+    if (angle_command < 0) {
       // Left turn
       rightturn = false;
-      angle_deg = Math.abs(angle_deg);
+      angle = Math.abs(angle_command);
     }
-    double arclength_in = (trackwidth_in * Math.PI * angle_deg) / 360.0;
+    double arclength = (trackwidth_in * Math.PI * angle) / 360.0;
+
+    // This adjustment factor accounts for estimated error in the ramp rate function
+    // If controller loop rate is changed, this factor will change
+    arclength = arclength + 1.65 * motorSpeed_M;
 
     // Maximum velocity that can be achieved in the distance given
     // assuming accel rate is equal to decel rate
-    double v_max_ips = Math.sqrt(accel_in_s2 * arclength_in);
+    double v_max_ips = Math.sqrt(accel_in_s2 * arclength);
     double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
     double arb_MotorSpeed_M = v_arb_command_ips / k; // arbitrated max motor speed
  
@@ -236,7 +243,7 @@ public class Robot extends TimedRobot {
     double t_accel_s = v_arb_command_ips / accel_in_s2;
 
     // Calculate total time
-    double t_total_s = arclength_in/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
+    double t_total_s = arclength/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
 
     // Initialize drive timer
     double startTime = Timer.getFPGATimestamp();
@@ -261,6 +268,9 @@ public class Robot extends TimedRobot {
         // constant velocity
         motorCommand = arb_MotorSpeed_M;
       }
+
+      // Clip motor command between 0 and 1;
+      motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
 
       // Set the motor speed
       if (rightturn){
