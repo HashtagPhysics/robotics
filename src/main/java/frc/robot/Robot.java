@@ -361,10 +361,10 @@ public class Robot extends TimedRobot {
     double dist_leg1 = start_to_reef - stop_margin; // stop just before the reef
     
     // drive from start line to reef
-    driveStraight(dist_leg1, 0.25)
+    driveStraight(dist_leg1, 0.25);
 
     // back up 12 inches
-    driveStraight(-12, 0.25)
+    driveStraight(-12, 0.25);
 
     // turn right 90 degrees
     driveTurn(90, 0.25);
