@@ -108,8 +108,12 @@ public class Robot extends TimedRobot {
     if (distance_in < 0) {
       // backwards
       forward = false;
-      distance_in = Math.abs(distance_in);
+      distance = Math.abs(distance_in);
     }
+
+    // This adjustment factor accounts for estimated error in the ramp rate function
+    // If controller loop rate is changed, this factor will change
+    double distance = distance + 1.65 * motorSpeed_M;
 
     // Convert motor speed command to inches per second
     double v_command_ips = k * motorSpeed_M;
@@ -119,7 +123,7 @@ public class Robot extends TimedRobot {
     
     // Maximum velocity that can be achieved in the distance given
     // assuming accel rate is equal to decel rate
-    double v_max_ips = Math.sqrt(accel_in_s2 * distance_in);
+    double v_max_ips = Math.sqrt(accel_in_s2 * distance);
     double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
     double arb_MotorSpeed_M = v_arb_command_ips / k; // arbitrated max motor speed
 
@@ -133,7 +137,7 @@ public class Robot extends TimedRobot {
     double t_accel_s = v_arb_command_ips / accel_in_s2;
 
     // Calculate total time
-    double t_total_s = distance_in/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
+    double t_total_s = distance/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
 
     // Initialize drive timer
     double startTime = Timer.getFPGATimestamp();
