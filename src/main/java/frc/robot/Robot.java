@@ -159,8 +159,8 @@ public class Robot extends TimedRobot {
   private double t_max_autonomous = 15;
   private boolean stepInitialized[], forward;
   private driveMode Mode[];
-  private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step, arb_MotorCommand;
-  private int numSteps, stepIdx;
+  private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step;
+  private int stepIdx;
 
   // set accel and decel rate in inches per second per second
   // Should be between 100 and 600
@@ -301,7 +301,10 @@ public class Robot extends TimedRobot {
   @Override
   public void autonomousPeriodic() {
 
-    double velocity_target, v_max, distance;
+    // Initialize variables
+    double velocity_target = 0;
+    double v_max = 0;
+    double distance = 0;
 
     // Check for end of routine
     if (stepIdx > Mode.length) {
