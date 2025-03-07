@@ -39,7 +39,7 @@ public class Robot extends TimedRobot {
   SparkMax driveRightB = new SparkMax(2,MotorType.kBrushed);
   SparkMax turningArm = new SparkMax(6, MotorType.kBrushed);
 
-//cts
+  //cts
   private void setLeftSpeed(double speed)
   {
     //Change bias to offset drift on Motors
@@ -54,6 +54,12 @@ public class Robot extends TimedRobot {
     driveRightB.set(-speed);
   };
 
+  public void setSafetyFault(String message)
+  {
+      safetyFaultActive = true;
+      System.err.println("Error: "+ message);
+  }
+
   public void safeState() {
     // Disable all motors
     // This function is used to set the robot to a safe state without disabling it
@@ -64,9 +70,9 @@ public class Robot extends TimedRobot {
     turningArm.set(0.0);
 
     System.out.println("Unknown Error: All motors set to zero.");
-}
+  }
 
-  public double k_MotorSpeed() {
+  private double k_MotorSpeed() {
     // Add voltage compensation logic later, if needed
     // factor k = speed in inches per second / motor speed command
     double k = 149;
@@ -80,213 +86,6 @@ public class Robot extends TimedRobot {
     }
 
     return k;
-}
-
-  // Method to drive straight for a number of inches
-  // To go backwards, enter a negative distance 
-  // at a given time at a given motor speed (0 to 1]
-  // The method assumes equal accel and decel ramps at the beginning and end of the cycle
-  private void driveStraight(double distance_command, double motorSpeed_M) {
-   
-    // set accel and decel rate in inches per second per second
-    // Should be between 100 and 600
-    // Calibrate as large as possible without slipping
-    double accel_in_s2 = 200; 
-
-    double loop_s = getPeriod(); // automatically get loop rate in seconds, typically 0.02s at 50Hz
-    double k = k_MotorSpeed(); // calculate motor speed conversion factor
-    
-    // Negative motor speed is not supported
-    if (motorSpeed_M <= 0) {
-      safeState(); // set motors to a safe state  
-      System.err.println("Error: Motor speed is negative in driveStraight");
-      return;
-    }
-
-    // Convert negative distance to direction
-    boolean forward = true;
-    if (distance_command < 0) {
-      // backwards
-      forward = false;
-    }
-    double distance = Math.abs(distance_command);
-
-    // This adjustment factor accounts for estimated error in the ramp rate function
-    // If controller loop rate is changed, this factor will change
-    distance = distance + 1.65 * motorSpeed_M;
-
-    // Convert motor speed command to inches per second
-    double v_command_ips = k * motorSpeed_M;
-
-    // Convert acceleration rate to motor step per loop
-    double M_step = (accel_in_s2 * loop_s ) / k;
-    
-    // Maximum velocity that can be achieved in the distance given
-    // assuming accel rate is equal to decel rate
-    double v_max_ips = Math.sqrt(accel_in_s2 * distance);
-    double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
-    double arb_MotorSpeed_M = v_arb_command_ips / k; // arbitrated max motor speed
-
-    if (v_arb_command_ips <= 0) {
-      safeState(); // set motors to a safe state  
-      System.err.println("Error: Arbitrated motor speed is zero in driveStraight");
-      return;
-    }
-
-    // Calculate ramp time
-    double t_accel_s = v_arb_command_ips / accel_in_s2;
-
-    // Calculate total time
-    double t_total_s = distance/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
-
-    // Initialize drive timer
-    double startTime = Timer.getFPGATimestamp();
-    double driveTime_s = 0; //Initialize the drive timer for this function
-
-    double motorCommand = 0; // Initialize the motor command to zero
-    while (driveTime_s < t_total_s) {
-      // Every loop in while driving straight
-      
-      // Calculate current time
-      driveTime_s = Timer.getFPGATimestamp() - startTime;
-
-      if (driveTime_s < t_accel_s) { 
-        // Ramp up speed
-        motorCommand = motorCommand + M_step;
-
-      } else if (driveTime_s >= (t_total_s - t_accel_s)) {
-        // Ramp down speed
-        motorCommand = motorCommand - M_step;
-
-      } else {
-        // constant velocity
-        motorCommand = arb_MotorSpeed_M;
-      }
-
-      // Clip motor command between 0 and 1;
-      motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
-
-      // Set the motor speed
-      if (forward){
-        // drive forward
-        setLeftSpeed(motorCommand);
-        setRightSpeed(motorCommand);
-
-      } else {
-        // drive backward
-        setLeftSpeed(-motorCommand);
-        setRightSpeed(-motorCommand);
-      }
-      
-    }
-    setLeftSpeed(0);
-    setRightSpeed(0);
-  }
-
-  // Method to turn a number of degrees to the right
-  // For left turns, enter a negative value
-  // Degrees should be between -360 and 360
-  // at a given motor speed (0 to 1]
-  // The method uses identical accel and decel ramps at the beginning and end of the cycle
-  private void driveTurn(double angle_command, double motorSpeed_M) {
-    
-    // Set robot track width in inches
-    double trackwidth_in = 24;
-
-    // set accel and decel rate in inches per second per second
-    // Should be between 100 and 600
-    // Calibrate as large as possible without slipping
-    double accel_in_s2 = 200; 
-    
-    double loop_s = getPeriod(); // automatically get loop rate in seconds, typically 0.02s at 50Hz
-    double k = k_MotorSpeed(); // calculate motor speed conversion factor
-    
-    // Negative motor speed is not supported
-    if (motorSpeed_M <= 0) {
-      safeState(); // set motors to a safe state  
-      System.err.println("Error: Motor speed is negative in driveStraight");
-      return;
-    }
-
-    // Convert motor speed command to inches per second
-    double v_command_ips = k * motorSpeed_M;
-
-    // Convert acceleration rate to motor step per loop
-    double M_step = (accel_in_s2 * loop_s ) / k;
-    
-    // Convert turn angle to arc length and direction
-    boolean rightturn = true;
-    if (angle_command < 0) {
-      // Left turn
-      rightturn = false;      
-    }
-    double angle = Math.abs(angle_command);
-
-    double arclength = (trackwidth_in * Math.PI * angle) / 360.0;
-
-    // This adjustment factor accounts for estimated error in the ramp rate function
-    // If controller loop rate is changed, this factor will change
-    arclength = arclength + 1.65 * motorSpeed_M;
-
-    // Maximum velocity that can be achieved in the distance given
-    // assuming accel rate is equal to decel rate
-    double v_max_ips = Math.sqrt(accel_in_s2 * arclength);
-    double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
-    double arb_MotorSpeed_M = v_arb_command_ips / k; // arbitrated max motor speed
- 
-    if (v_arb_command_ips <= 0) {
-      safeState(); // set motors to a safe state  
-      System.err.println("Error: Arbitrated motor speed is zero in driveStraight");
-      return;
-    }
-
-    // Calculate ramp time
-    double t_accel_s = v_arb_command_ips / accel_in_s2;
-
-    // Calculate total time
-    double t_total_s = arclength/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
-
-    // Initialize drive timer
-    double startTime = Timer.getFPGATimestamp();
-    double driveTime_s = 0; //Initialize the drive timer for this function
-
-    double motorCommand = 0; // Initialize the motor command to zero
-    while (driveTime_s < t_total_s) {
-      // Every loop in while driving straight
-      
-      // Calculate current time
-      driveTime_s = Timer.getFPGATimestamp() - startTime;
-
-      if (driveTime_s < t_accel_s) { 
-        // Ramp up speed
-        motorCommand = motorCommand + M_step;
-
-      } else if (driveTime_s >= (t_total_s - t_accel_s)) {
-        // Ramp down speed
-        motorCommand = motorCommand - M_step;
-
-      } else {
-        // constant velocity
-        motorCommand = arb_MotorSpeed_M;
-      }
-
-      // Clip motor command between 0 and 1;
-      motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
-
-      // Set the motor speed
-      if (rightturn){
-        // Right turn
-        setLeftSpeed(motorCommand);
-        setRightSpeed(-motorCommand);
-
-      } else {
-        // Left turn
-        setLeftSpeed(-motorCommand);
-        setRightSpeed(motorCommand);
-      }
-    }
-    setLeftSpeed(0);
-    setRightSpeed(0);
   }
 
   /* Motoin FIlters */
@@ -298,6 +97,7 @@ public class Robot extends TimedRobot {
   Joystick opController = new Joystick(1);
 
   /* Global variables */
+  boolean safetyFaultActive = false;
   double driveFactor = 0.6;
   double autoStart = 0;
   private static final String kDefaultAuto = "Default";
@@ -346,6 +146,52 @@ public class Robot extends TimedRobot {
   @Override
   public void robotPeriodic() {}
 
+  /* Autonomous Mode Global Definitions */
+  private double loop_s = getPeriod(); // automatically get loop rate in seconds, typically 0.02s at 50Hz
+  private double k = k_MotorSpeed(); // calculate motor speed conversion factor
+
+  /* These are the available routines and drive modes */
+  private enum startLoc {LEFT, CENTER, RIGHT};
+  private enum driveMode { DRIVE, TURN, EJECT, PAUSE }
+  
+  // declare global variables
+  private double t_max_autonomous = 15;
+  private boolean stepInitialized[], forward;
+  private driveMode Modes[], stepMode;
+  private double Magnitudes[], MotorCommands[], stepStartTime[], stepMagnitude, stepCommand, t_total_s, t_accel, M_step, arb_MotorCommand;
+  private int numSteps, stepIdx;
+
+  // set accel and decel rate in inches per second per second
+  // Should be between 100 and 600
+  // Calibrate as large as possible without slipping
+  private double accel_rate = 200; 
+
+   // Set robot track width in inches
+   private double trackwidth = 24;
+  
+    /* The Autonomous Routine is defined here */
+  private driveMode[] centerModes = {
+    driveMode.DRIVE,
+    driveMode.EJECT,
+    driveMode.DRIVE,
+    driveMode.TURN,
+  };
+  
+  private double[] centerMagnitudes = {
+    87, // stop just before the reef
+    0.8, // eject for 0.8 seconds
+    -12, // back up 12 inches 
+    90   // turn right 90 degrees
+  };
+
+  /* motor command for each step */
+  private double[] centerMotorCommands = {
+    0.25, 
+    0.25, 
+    0.25, 
+    0.25  
+  };
+
   /**
    * This autonomous (along with the chooser code above) shows how to select between different
    * autonomous modes using the dashboard. The sendable chooser code works with the Java
@@ -358,33 +204,196 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    m_autoSelected = m_chooser.getSelected();
+    m_autoSelected = m_chooser.getSelected(); // is this used?
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
     System.out.println("Auto selected: " + m_autoSelected);
 
-    autoStart = Timer.getFPGATimestamp();
+    // Initialize the routine step counter
+    stepIdx = 1;
+    
+    // Pick a routine
+    startLoc routine = startLoc.LEFT;
+
+    // Load the autonomous routine
+    switch (routine) {
+
+      case CENTER:
+      Modes = centerModes;
+      Magnitudes = centerMagnitudes;
+      MotorCommands = centerMotorCommands;
+      break;
+
+      default:
+      System.out.println("Routine not defined");
+        break;
+    }
+
+    // Count the number of steps for this routine
+    numSteps = Modes.length;
+
+    // Initialize array to false (default)
+    stepInitialized = new boolean[numSteps];
+
   }
 
   /** This function is called periodically during autonomous. */
   //CTS
   @Override
   public void autonomousPeriodic() {
-    // Autonomous Strategy 2
-    double start_to_reef = 88; // front of the start line to the reef
-    
-    double stop_margin = 1; // stop margin from target in inches 
-    double dist_leg1 = start_to_reef - stop_margin; // stop just before the reef
-    
-    // drive from start line to reef
-    driveStraight(dist_leg1, 0.25);
 
-    // back up 12 inches
-    driveStraight(-12, 0.25);
+    // Initialize the drive or turn calculation
+    if (!stepInitialized[stepIdx]) {
+      
+      // Start the drive timer
+      stepStartTime[stepIdx] = Timer.getFPGATimestamp();
 
-    // turn right 90 degrees
-    driveTurn(90, 0.25);
+      /* These variables may or may not change in each periodic, but are calculated again here, just in case*/
+      loop_s = getPeriod(); 
+      k = k_MotorSpeed();
+
+      // Get mode for this step
+      stepMode = Modes[stepIdx];
+      stepMagnitude = Magnitudes[stepIdx];
+      stepCommand = MotorCommands[stepIdx];
+
+      // Negative motor speed commands are not supported here
+      // To drive backwards, command negative distance
+      // To turn left, command negative angle
+      if (stepCommand <= 0) {
+        setSafetyFault("Motor command is negative in drive or turn function");
+      }
+
+      // Convert negative distance to direction
+      forward = true;
+      if (stepMagnitude < 0) {
+        // backwards
+        forward = false;
+      }
+      stepMagnitude = Math.abs(stepMagnitude);
+
+      // Convert motor speed command to inches per second
+      double v_command_ips = k * stepCommand;
+
+      // Convert acceleration rate to motor step per loop
+      M_step = (accel_rate * loop_s ) / k;
+
+      // Define wheel distance to travel
+      double distance;
+      switch (stepMode) {
+          case DRIVE:
+          
+            // DRIVE works in terms of distance
+            // (both wheels moving together)
+            distance = stepMagnitude;
+                                  
+            break;
+          
+          case TURN:
+
+            // TURN works in terms of angle which converts to distance (arclength)
+            // (wheels turning in opposite directions)
+            distance = (trackwidth * Math.PI * stepMagnitude) / 360.0;
+
+            break;              
+      }
+
+      // This adjustment factor accounts for estimated error in the ramp rate function
+      // If controller loop rate is changed, this factor will change
+      distance = distance + 1.65 * stepCommand;
+      
+      // Maximum velocity that can be achieved in the distance given
+      // assuming accel rate is equal to decel rate
+      double v_max_ips = Math.sqrt(accel_rate * distance);
+      double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
+      
+      // Error if arbitrated motor speed is 0
+      if (v_arb_command_ips <= 0) {
+        safetyFaultActive = true;
+        System.err.println("Error: Arbitrated motor speed is zero in driveStraight");      
+      }
+
+      // arbitrated max motor speed
+      arb_MotorCommand = v_arb_command_ips / k; 
+
+      // Calculate ramp time
+      t_accel = v_arb_command_ips / accel_rate;
+
+      // Calculate total time
+      t_total_s = distance/v_arb_command_ips + v_arb_command_ips/accel_rate; 
+
+      // Error if arbitrated motor speed is 0
+      if ((t_total_s <= 0) || (t_total_s > t_max_autonomous)) {
+        safetyFaultActive = true;
+        System.err.println("Error: Calculated drive time is invalid");        
+      }
+    } 
+
+    // Measure current drive time for this step
+    double driveTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
+
+    double motorCommand = 0; // Initialize the motor command to zero
+    if (driveTime < t_accel) {
+      // Ramp up motor command
+      motorCommand = motorCommand + M_step;
+
+    } else if (driveTime >= (t_total_s - t_accel)) {
+      // Ramp down speed
+      motorCommand = motorCommand - M_step;
+
+    } else {
+      // constant velocity
+      motorCommand = arb_MotorCommand;
+    }
+
+    // Clip motor command between 0 and 1;
+    motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
+
+    if (!safetyFaultActive) {
+
+      switch (stepMode) {
+        case DRIVE:
+          if (forward){
+            // drive forward
+            setLeftSpeed(motorCommand);
+            setRightSpeed(motorCommand);
+    
+          } else {
+            // drive backward
+            setLeftSpeed(-motorCommand);
+            setRightSpeed(-motorCommand);
+          }
+                              
+        break;
+      
+        case TURN:
+          if (forward){
+            // Right turn
+            setLeftSpeed(motorCommand);
+            setRightSpeed(-motorCommand);
+    
+          } else {
+            // Left turn
+            setLeftSpeed(-motorCommand);
+            setRightSpeed(motorCommand);
+          }
+
+        break;              
+      }
+    } else {
+      safeState(); // set motors to a safe state  
+      System.err.println("Error: Safety Fault Active");
+      return;
+    }
+
+    // Check for step complete
+    if (driveTime >= t_total_s)
+    safeState(); // Go to a safe state
+    stepIdx = stepIdx + 1; // Go to the next step (in the next loop)
     
   }
+    
+    
+  
 
   /** This function is called once when teleop is enabled. */
   @Override
