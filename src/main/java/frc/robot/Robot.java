@@ -165,79 +165,79 @@ public class Robot extends TimedRobot {
   // Calibrate as large as possible without slipping
   private double accel_rate; 
 
-   // Calibrate: Set robot track width in inches
-   private double trackwidth = 24;
+  // Calibrate: Set robot track width in inches
+  private double trackwidth = 24;
   
-    /* The Autonomous Routine is defined here */
+  /* The Autonomous Routines are defined here */
 
-    // Calibrate: LEFT Autonomous Routine
-    private driveMode[] leftModes = {
-      driveMode.DRIVE,
-      driveMode.EJECT,
-      driveMode.DRIVE,
-      driveMode.TURN,
-    };
-    
-    private double[] leftMagnitudes = {
-      87, // stop just before the reef
-      0.8, // eject for 0.8 seconds
-      -12, // back up 12 inches 
-      90   // turn right 90 degrees
-    };
+  // Calibrate: LEFT Autonomous Routine
+  private driveMode[] leftModes = {
+    driveMode.DRIVE,
+    driveMode.EJECT,
+    driveMode.DRIVE,
+    driveMode.TURN,
+  };
   
-    /* motor command for each step */
-    private double[] leftMotorCommands = {
-      0.25, 
-      0.25, 
-      0.25, 
-      0.25  
-    };
+  private double[] leftMagnitudes = {
+    87, // stop just before the reef
+    0.8, // eject for 0.8 seconds
+    -12, // back up 12 inches 
+    90   // turn right 90 degrees
+  };
 
-    // Calibrate: CENTER Autonomous Routine
-    private driveMode[] centerModes = {
-      driveMode.DRIVE,
-      driveMode.EJECT,
-      driveMode.DRIVE,
-      driveMode.TURN,
-    };
-    
-    private double[] centerMagnitudes = {
-      87, // stop just before the reef
-      0.8, // eject for 0.8 seconds
-      -12, // back up 12 inches 
-      90   // turn right 90 degrees
-    };
-  
-    /* motor command for each step */
-    private double[] centerMotorCommands = {
-      0.25, 
-      0.25, 
-      0.25, 
-      0.25  
-    };
+  /* motor command for each step */
+  private double[] leftMotorCommands = {
+    0.25, 
+    0.25, 
+    0.25, 
+    0.25  
+  };
 
-    // Calibrate: RIGHT Autonomous Routine
-    private driveMode[] rightModes = {
-      driveMode.DRIVE,
-      driveMode.EJECT,
-      driveMode.DRIVE,
-      driveMode.TURN,
-    };
-    
-    private double[] rightMagnitudes = {
-      87, // stop just before the reef
-      0.8, // eject for 0.8 seconds
-      -12, // back up 12 inches 
-      90   // turn right 90 degrees
-    };
+  // Calibrate: CENTER Autonomous Routine
+  private driveMode[] centerModes = {
+    driveMode.DRIVE,
+    driveMode.EJECT,
+    driveMode.DRIVE,
+    driveMode.TURN,
+  };
   
-    /* motor command for each step */
-    private double[] rightMotorCommands = {
-      0.25, 
-      0.25, 
-      0.25, 
-      0.25  
-    };
+  private double[] centerMagnitudes = {
+    87, // stop just before the reef
+    0.8, // eject for 0.8 seconds
+    -12, // back up 12 inches 
+    90   // turn right 90 degrees
+  };
+
+  /* motor command for each step */
+  private double[] centerMotorCommands = {
+    0.25, 
+    0.25, 
+    0.25, 
+    0.25  
+  };
+
+  // Calibrate: RIGHT Autonomous Routine
+  private driveMode[] rightModes = {
+    driveMode.DRIVE,
+    driveMode.EJECT,
+    driveMode.DRIVE,
+    driveMode.TURN,
+  };
+  
+  private double[] rightMagnitudes = {
+    87, // stop just before the reef
+    0.8, // eject for 0.8 seconds
+    -12, // back up 12 inches 
+    90   // turn right 90 degrees
+  };
+
+  /* motor command for each step */
+  private double[] rightMotorCommands = {
+    0.25, 
+    0.25, 
+    0.25, 
+    0.25  
+  };
 
   /**
    * This autonomous (along with the chooser code above) shows how to select between different
