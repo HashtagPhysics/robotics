@@ -294,7 +294,11 @@ public class Robot extends TimedRobot {
             // (wheels turning in opposite directions)
             distance = (trackwidth * Math.PI * stepMagnitude) / 360.0;
 
-            break;              
+            break;
+        default:
+          distance = stepMagnitude;
+          setSafetyFault("Unknown Drive State");
+          break;              
       }
 
       // This adjustment factor accounts for estimated error in the ramp rate function
@@ -323,8 +327,7 @@ public class Robot extends TimedRobot {
 
       // Error if arbitrated motor speed is 0
       if ((t_total_s <= 0) || (t_total_s > t_max_autonomous)) {
-        safetyFaultActive = true;
-        System.err.println("Error: Calculated drive time is invalid");        
+        setSafetyFault("Calculated drive time is invalid");
       }
     } 
 
@@ -377,7 +380,10 @@ public class Robot extends TimedRobot {
             setRightSpeed(motorCommand);
           }
 
-        break;              
+        break;
+        default:
+        setSafetyFault("Invalid Step Mode Commanded");
+          break;              
       }
     } else {
       safeState(); // set motors to a safe state  
