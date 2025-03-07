@@ -70,12 +70,13 @@ public class Robot extends TimedRobot {
     driveRightB.set(0.0);
     turningArm.set(0.0);
 
-    System.out.println("Unknown Error: All motors set to zero.");
+    System.err.println("Unknown Error: All motors set to zero.");
   }
 
   private double k_MotorSpeed() {
     // Add voltage compensation logic later, if needed
-    // factor k = speed in inches per second / motor speed command
+
+    // Calibrate: factor k = speed in inches per second / motor speed command
     double k = 149;
 
     double k_default = 150; // only returned in case of error
@@ -106,8 +107,6 @@ public class Robot extends TimedRobot {
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
   
-  
-  
   SparkMaxConfig configInverted = new SparkMaxConfig();
   SparkMaxConfig config = new SparkMaxConfig();
   SparkBase.ResetMode resetMode;
@@ -119,7 +118,6 @@ public class Robot extends TimedRobot {
   @Override
   public void robotInit() {
     /* Set up our motor settigns*/
-
 
     //Sets the settings on the SparkMax configs and applies them to the motors
     configInverted.inverted(true);
@@ -167,10 +165,12 @@ public class Robot extends TimedRobot {
   // Calibrate as large as possible without slipping
   private double accel_rate; 
 
-   // Set robot track width in inches
+   // Calibrate: Set robot track width in inches
    private double trackwidth = 24;
   
     /* The Autonomous Routine is defined here */
+
+    // Calibrate: LEFT Autonomous Routine
     private driveMode[] leftModes = {
       driveMode.DRIVE,
       driveMode.EJECT,
@@ -193,7 +193,7 @@ public class Robot extends TimedRobot {
       0.25  
     };
 
-    /* CENTER Routine */
+    // Calibrate: CENTER Autonomous Routine
     private driveMode[] centerModes = {
       driveMode.DRIVE,
       driveMode.EJECT,
@@ -216,7 +216,7 @@ public class Robot extends TimedRobot {
       0.25  
     };
 
-    /* RIGHT Routine */
+    // Calibrate: RIGHT Autonomous Routine
     private driveMode[] rightModes = {
       driveMode.DRIVE,
       driveMode.EJECT,
@@ -261,7 +261,7 @@ public class Robot extends TimedRobot {
     // Initialize the routine step counter
     stepIdx = 0;
     
-    // Input: Pick a routine
+    // Calibrate: Pick a routine
     startLoc routine = startLoc.CENTER;
     System.out.println(routine + "Routine Loaded");
     
@@ -302,6 +302,7 @@ public class Robot extends TimedRobot {
   public void autonomousPeriodic() {
 
     // Initialize variables
+    // These values get overwritten
     double velocity_target = 0;
     double v_max = 0;
     double distance = 0;
@@ -351,7 +352,7 @@ public class Robot extends TimedRobot {
 
             // acceleration rate for DRIVE steps
             // should be between 100 and 600
-            // Calibrate to prevent slipping
+            // Calibrate: Max without prevent slipping
             accel_rate = 200;
             break;
           
@@ -359,7 +360,7 @@ public class Robot extends TimedRobot {
 
             // acceleration rate for DRIVE steps
             // should be between 100 and 600
-            // Calibrate to prevent slipping
+            // Calibrate: Max without prevent slipping
             accel_rate = 200;
 
             // TURN works in terms of angle which converts to distance (arclength)
@@ -448,8 +449,14 @@ public class Robot extends TimedRobot {
     // Clip motor command between 0 and 1;
     motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
 
-    if (!safetyFaultActive) {
+    if (safetyFaultActive) {
+      // Fault active, go to safe state
+      safeState();
+      System.err.println("Error: Safety Fault Active, Exiting Routine");
+      return; // exit autonomous
 
+    } else {
+      // Set Motor Commands
       switch (Mode[stepIdx]) {
         case DRIVE:
           if (forward){
@@ -494,11 +501,6 @@ public class Robot extends TimedRobot {
         setSafetyFault("Invalid Step Mode Commanded");
           break;              
       }
-
-    } else {
-      safeState(); // set motors to a safe state  
-      System.err.println("Error: Safety Fault Active");
-      return;
     }
 
     // Check for step complete
