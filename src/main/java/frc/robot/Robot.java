@@ -36,6 +36,7 @@ public class Robot extends TimedRobot {
   SparkMax driveRightB = new SparkMax(2,MotorType.kBrushed);
   SparkMax turningArm = new SparkMax(6, MotorType.kBrushed);
 
+
 //cts
   private void setLeftSpeed(double speed)
   {
@@ -51,100 +52,6 @@ public class Robot extends TimedRobot {
     driveRightB.set(-speed);
   };
 
-  public void safeState() {
-    // Disable all motors
-    // This function is used to set the robot to a safe state without disabling it
-    driveLeftA.set(0.0);
-    driveLeftB.set(0.0);
-    driveRightA.set(0.0);
-    driveRightB.set(0.0);
-    turningArm.set(0.0);
-
-    System.out.println("Unknown Error: All motors set to zero.");
-}
-
-  public double k_MotorSpeed() {
-    // Add voltage compensation logic later, if needed
-    // factor k = speed in inches per second / motor speed command
-    double k = 149;
-
-    double k_default = 150; // only returned in case of error
-
-    if (k == 0) {
-      safeState(); // set motors to a safe state  
-      System.err.println("Error: k_MotorSpeed() returned zero!");
-      k = k_default;
-    }
-
-    return k;
-}
-
-  // Method to drive straight for a number of inches 
-  // at a given time at a given motor speed (0 to 1)
-  // The method assumes equal accel and decel ramps at the beginning and end of the cycle
-  private void driveStraight(double distance_in, double motorSpeed_M) {
-    double startTime = Timer.getFPGATimestamp();
-    double driveTime_s = 0; //Initialize the drive timer for this function
-    double loop_s = getPeriod(); // get loop rate in seconds, typically 0.02s at 50Hz
-    double k = k_MotorSpeed(); // calculate motor speed conversion factor
-    
-    // set accel and decel rate in inches per second per second
-    // Should be between 100 and 600
-    // Calibrate as large as possible without slipping
-    double accel_in_s2 = 200; 
-    
-    // Convert motor speed command to inches per second
-    double v_command_ips = k * motorSpeed_M;
-
-    // Convert acceleration rate to motor step per loop
-    double M_step = (accel_in_s2 * loop_s ) / k;
-    
-    // Maximum velocity that can be achieved in the distance given
-    // assuming accel rate is equal to decel rate
-    double v_max_ips = Math.sqrt(accel_in_s2 * distance_in);
-    double v_arb_command_ips = Math.min(v_command_ips,v_max_ips); // clipped command
-    double arb_MotorSpeed_M = v_arb_command_ips / k; // arbitrated max motor speed
- 
-    if (v_arb_command_ips <= 0) {
-      safeState(); // set motors to a safe state  
-      System.err.println("Error: Arbitrated motor speed is zero in driveStraight");
-      return;
-    }
-
-    // Calculate ramp time
-    double t_accel_s = v_arb_command_ips / accel_in_s2;
-
-    // Calculate total time
-    double t_total_s = distance_in/v_arb_command_ips + v_arb_command_ips/accel_in_s2; 
-
-    double motorCommand = 0; // Initialize the motor command to zero
-    while (driveTime_s < t_total_s) {
-      // Every loop in while driving straight
-      
-      // Calculate current time
-      driveTime_s = Timer.getFPGATimestamp() - startTime;
-
-      if (driveTime_s < t_accel_s) { 
-        // Ramp up speed
-        motorCommand = motorCommand + M_step;
-
-      } else if (driveTime_s >= (t_total_s - t_accel_s)) {
-        // Ramp down speed
-        motorCommand = motorCommand - M_step;
-
-      } else {
-        // constant velocity
-        motorCommand = arb_MotorSpeed_M;
-      }
-
-      % Set the motor speed
-      setLeftSpeed(motorCommand);
-      setRightSpeed(motorCommand);
-      
-    }
-    setLeftSpeed(0);
-    setRightSpeed(0);
-  }
 
   /* Motoin FIlters */
   SlewRateLimiter driveFilter = new SlewRateLimiter(4);
@@ -188,6 +95,9 @@ public class Robot extends TimedRobot {
     driveRightA.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
     driveRightB.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
     
+
+
+
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
@@ -227,37 +137,33 @@ public class Robot extends TimedRobot {
   @Override
   public void autonomousPeriodic() {
     double autoElapsed = Timer.getFPGATimestamp() - autoStart;
-    
-    if(autoElapsed<2.72)
+
+    // Drive Motor Control
+    if(autoElapsed <= 2.87)
     {
+      // Drive up to reef
       setLeftSpeed(-0.25);
       setRightSpeed(-0.25);
     }
-    /*else if (autoElapsed<2) 
+    else if(autoElapsed > 2.72)
     {
-      setLeftSpeed(0.3);
-      setRightSpeed(-0.3);
-    }
-    else if (autoElapsed<3) 
-    {
-      setLeftSpeed(-0.3);
-      setRightSpeed(0.3);
-    }*/
-    else
-    {
+      // Stop driving
       setLeftSpeed(0);
       setRightSpeed(0);
     }
-    // switch (m_autoSelected) {
-    //   case kCustomAuto:
-    //     // Put custom auto code here
-    //     break;
-    //   case kDefaultAuto:
-    //   default:
-    //     // Put default auto code here
-    //     break;
     
-  }
+    // Turning arm control
+    if ((autoElapsed > 2.8) && (autoElapsed < 3.5))
+    {
+      // Drop coral in reef
+      turningArm.set(.34);
+    }
+    else
+    {
+       // Stop ejecting
+       turningArm.set(0);
+    }
+  }  
 
   /** This function is called once when teleop is enabled. */
   @Override
