@@ -46,13 +46,13 @@ public class Robot extends TimedRobot {
     //Change bias to offset drift on Motors
     //Don't change bias more than between .9 and 1.1
     double leftWheelBias = 1.07;
-    driveLeftA.set(-speed * leftWheelBias);
-    driveLeftB.set(-speed * leftWheelBias);
+    driveLeftA.set(speed * leftWheelBias);
+    driveLeftB.set(speed * leftWheelBias);
   };
   private void setRightSpeed(double speed)
   {
-    driveRightA.set(-speed);
-    driveRightB.set(-speed);
+    driveRightA.set(speed);
+    driveRightB.set(speed);
   };
 
   public void setSafetyFault(String message)
@@ -306,6 +306,8 @@ public class Robot extends TimedRobot {
     double velocity_target = 0;
     double v_max = 0;
     double distance = 0;
+    double stepTime, motorCommand;
+
 
     // Check for end of routine
     if (stepIdx > Mode.length) {
@@ -429,9 +431,9 @@ public class Robot extends TimedRobot {
     } 
 
     // Measure current drive time for this step
-    double stepTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
+    stepTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
 
-    double motorCommand = 0; // Initialize the motor command to zero
+    motorCommand = 0; // Initialize the motor command to zero
 
     if (stepTime < t_accel) {
       // Ramp up motor command
