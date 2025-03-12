@@ -153,17 +153,13 @@ public class Robot extends TimedRobot {
   private enum startLoc {LEFT, CENTER, RIGHT};
   private enum driveMode { DRIVE, TURN, EJECT, PAUSE }
   
-  // declare global variables
-  private double t_max_autonomous = 15;
-  private boolean stepInitialized[], forward;
+  // Autonomous global variables
+  private double t_max_autonomous = 15;  // max step time cannot exceed autonomous time, safety measure
+  private double accel_rate; // set elsewhere
+  private boolean stepInitialized[], forward; 
   private driveMode Mode[];
   private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step;
   private int stepIdx;
-
-  // set accel and decel rate in inches per second per second
-  // Should be between 100 and 600
-  // Calibrate as large as possible without slipping
-  private double accel_rate; 
 
   // Calibrate: Set robot track width in inches
   private double trackwidth = 24;
@@ -211,7 +207,7 @@ public class Robot extends TimedRobot {
   /* motor command for each step */
   private double[] centerMotorCommands = {
     0.25, 
-    0.25, 
+    0.75, 
     0.25, 
     0.25  
   };
@@ -311,7 +307,7 @@ public class Robot extends TimedRobot {
 
     // Check for end of routine
     if (stepIdx > Mode.length) {
-      safeState();
+      safeState(); // Set all motors to zero
       System.out.println("All Steps Complete");
       return;
     }
@@ -413,10 +409,10 @@ public class Robot extends TimedRobot {
       }
 
       // Calculate ramp time
-      t_accel = velocity_target / accel_rate;
+      t_accel = velocity_target / (2*accel_rate);
 
       // Calculate total time
-      t_total_s = distance/velocity_target + t_accel; 
+      t_total_s = distance/velocity_target + 2 * t_accel; 
 
       // If drive mode is PAUSE, override time with PAUSE time
       if (Mode[stepIdx] == driveMode.PAUSE) {
