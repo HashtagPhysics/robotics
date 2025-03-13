@@ -198,7 +198,7 @@ public class Robot extends TimedRobot {
   };
   
   private double[] centerMagnitudes = {
-    87, // stop just before the reef
+    67.25, // stop just before the reef
     0.8, // eject for 0.8 seconds
     -12, // back up 12 inches 
     90   // turn right 90 degrees
