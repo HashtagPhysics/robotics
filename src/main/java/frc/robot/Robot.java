@@ -409,10 +409,10 @@ public class Robot extends TimedRobot {
       }
 
       // Calculate ramp time
-      t_accel = velocity_target / (2*accel_rate);
+      t_accel = velocity_target / accel_rate;
 
       // Calculate total time
-      t_total_s = distance/velocity_target + 2 * t_accel; 
+      t_total_s = distance/velocity_target + t_accel; 
 
       // If drive mode is PAUSE, override time with PAUSE time
       if (Mode[stepIdx] == driveMode.PAUSE) {
