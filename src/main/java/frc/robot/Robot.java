@@ -4,6 +4,7 @@
 
 package frc.robot;
 
+import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
@@ -83,7 +84,8 @@ public class Robot extends TimedRobot {
   public void robotInit() {
     /* Set up our motor settigns*/
 
-
+    CameraServer.startAutomaticCapture(0);
+    
     //Sets the settings on the SparkMax configs and applies them to the motors
     configInverted.inverted(true);
     configInverted.idleMode(IdleMode.kBrake);
@@ -111,7 +113,9 @@ public class Robot extends TimedRobot {
    * SmartDashboard integrated updating.
    */
   @Override
-  public void robotPeriodic() {}
+  public void robotPeriodic() {
+
+  }
 
   /**
    * This autonomous (along with the chooser code above) shows how to select between different
@@ -139,13 +143,47 @@ public class Robot extends TimedRobot {
     double autoElapsed = Timer.getFPGATimestamp() - autoStart;
 
     // Drive Motor Control
-    if(autoElapsed <= 2.87)
+    if(autoElapsed <= 2.168)
     {
       // Drive up to reef
       setLeftSpeed(-0.25);
       setRightSpeed(-0.25);
     }
-    else if(autoElapsed > 2.72)
+    else if (autoElapsed <= 3.25)
+    {
+      //wait period
+      setLeftSpeed(0);
+      setRightSpeed(0);
+    }
+    else if (autoElapsed <= 4)
+    {
+      // Drop coral in reef
+      turningArm.set(.34);
+    }
+    else if (autoElapsed <= 4.5)
+    {
+      //wait period
+      setLeftSpeed(0);
+      setRightSpeed(0);
+    }
+    else if(autoElapsed <= 6 )
+    {
+      setLeftSpeed(0.25);
+      setRightSpeed(0.25);
+      turningArm.set(0);
+    }
+//left negative = left human player
+    else if(autoElapsed <= 9.25)
+    {
+      //Turns Field Left
+      //setLeftSpeed(0.25);
+      //setRightSpeed(-0.25);
+
+      //Turns right
+      setLeftSpeed(-0.25);
+      setRightSpeed(0.25);
+    }
+    else 
     {
       // Stop driving
       setLeftSpeed(0);
@@ -153,7 +191,7 @@ public class Robot extends TimedRobot {
     }
     
     // Turning arm control
-    if ((autoElapsed > 2.8) && (autoElapsed < 3.5))
+    /*if ((autoElapsed > 3) && (autoElapsed < 3.5))
     {
       // Drop coral in reef
       turningArm.set(.34);
@@ -162,7 +200,7 @@ public class Robot extends TimedRobot {
     {
        // Stop ejecting
        turningArm.set(0);
-    }
+    }*/
   }  
 
   /** This function is called once when teleop is enabled. */
@@ -185,13 +223,25 @@ public class Robot extends TimedRobot {
 
     double forward = driveFilter.calculate(driverController.getRawAxis(1));
     double turn = turnFilter.calculate(driverController.getRawAxis(4));
-    double driveLeftPower = forward - turn;
-    double driveRightPower = forward + turn;
+    double driveLeftPower;
+    double driveRightPower;
     //driveLeft.set(driveLeftPower*driveFactor);
     //driveRight.set(driveRightPower*driveFactor);
+    if (driverController.getRawButton(6))
+    {
+    driveLeftPower = forward + turn;
+    driveRightPower = forward - turn;
+    setLeftSpeed(driveLeftPower*driveFactor * -1);
+    setRightSpeed(driveRightPower*driveFactor * -1);
+    
+    }
+    else
+    {
+    driveLeftPower = forward - turn;
+    driveRightPower = forward + turn;
     setLeftSpeed(driveLeftPower*driveFactor);
     setRightSpeed(driveRightPower*driveFactor);
-
+    }
     /* Op controlls */
 
     //Turning speed Control only change in the IF commands
@@ -201,19 +251,24 @@ public class Robot extends TimedRobot {
     //CTS
     if(opController.getRawButton(5))
     {
-      turningSpeed = -0.5;
+      turningSpeed = -0.55;
     }
     else if(opController.getRawButton(6))
     {
-      turningSpeed = -0.5;
+      turningSpeed = -0.55;
     }
     else if(opController.getRawButton(3))
     {
-      turningSpeed = 0.5;
+      turningSpeed = 0.55;
     }
     else if(opController.getRawButton(4))
     {
-      turningSpeed = 0.5;
+      turningSpeed = 0.55;
+    }
+    else if(opController.getRawButton(1))
+    {
+      //Trigger to shoot coral fast
+      turningSpeed = 0.75;
     }
     else
     {
