@@ -4,6 +4,7 @@
 
 package frc.robot;
 
+import edu.wpi.first.cameraserver.CameraServer;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
@@ -107,6 +108,8 @@ public class Robot extends TimedRobot {
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
   
+  
+  
   SparkMaxConfig configInverted = new SparkMaxConfig();
   SparkMaxConfig config = new SparkMaxConfig();
   SparkBase.ResetMode resetMode;
@@ -119,6 +122,8 @@ public class Robot extends TimedRobot {
   public void robotInit() {
     /* Set up our motor settigns*/
 
+    CameraServer.startAutomaticCapture(0);
+    
     //Sets the settings on the SparkMax configs and applies them to the motors
     configInverted.inverted(true);
     configInverted.idleMode(IdleMode.kBrake);
@@ -130,6 +135,9 @@ public class Robot extends TimedRobot {
     driveRightA.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
     driveRightB.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
     
+
+
+
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
@@ -525,15 +533,32 @@ public class Robot extends TimedRobot {
     else
       driveFactor= 0.5;
     
+
+
     double forward = driveFilter.calculate(driverController.getRawAxis(1));
     double turn = turnFilter.calculate(driverController.getRawAxis(4));
     double driveLeftPower = forward - turn;
     double driveRightPower = forward + turn;
+    double driveLeftPower;
+    double driveRightPower;
     //driveLeft.set(driveLeftPower*driveFactor);
     //driveRight.set(driveRightPower*driveFactor);
+    if (driverController.getRawButton(6))
+    {
+    driveLeftPower = forward + turn;
+    driveRightPower = forward - turn;
+    setLeftSpeed(driveLeftPower*driveFactor * -1);
+    setRightSpeed(driveRightPower*driveFactor * -1);
+    
+    }
+    else
+    {
+    driveLeftPower = forward - turn;
+    driveRightPower = forward + turn;
     setLeftSpeed(driveLeftPower*driveFactor);
     setRightSpeed(driveRightPower*driveFactor);
 
+    }
     /* Op controlls */
 
     //Turning speed Control only change in the IF commands
@@ -544,18 +569,27 @@ public class Robot extends TimedRobot {
     if(opController.getRawButton(5))
     {
       turningSpeed = -0.5;
+      turningSpeed = -0.55;
     }
     else if(opController.getRawButton(6))
     {
       turningSpeed = -0.5;
+      turningSpeed = -0.55;
     }
     else if(opController.getRawButton(3))
     {
       turningSpeed = 0.5;
+      turningSpeed = 0.55;
     }
     else if(opController.getRawButton(4))
     {
       turningSpeed = 0.5;
+      turningSpeed = 0.55;
+    }
+    else if(opController.getRawButton(1))
+    {
+      //Trigger to shoot coral fast
+      turningSpeed = 0.75;
     }
     else
     {
