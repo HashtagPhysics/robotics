@@ -532,32 +532,28 @@ public class Robot extends TimedRobot {
       driveFactor = 0.7;
     else
       driveFactor= 0.5;
-    
-
 
     double forward = driveFilter.calculate(driverController.getRawAxis(1));
     double turn = turnFilter.calculate(driverController.getRawAxis(4));
-    double driveLeftPower = forward - turn;
-    double driveRightPower = forward + turn;
     double driveLeftPower;
     double driveRightPower;
-    //driveLeft.set(driveLeftPower*driveFactor);
-    //driveRight.set(driveRightPower*driveFactor);
+    
+    // Drive Forward
     if (driverController.getRawButton(6))
     {
-    driveLeftPower = forward + turn;
-    driveRightPower = forward - turn;
-    setLeftSpeed(driveLeftPower*driveFactor * -1);
-    setRightSpeed(driveRightPower*driveFactor * -1);
-    
+      driveLeftPower = forward - turn;
+      driveRightPower = forward + turn;
+      setLeftSpeed(driveLeftPower*driveFactor);
+      setRightSpeed(driveRightPower*driveFactor);
     }
+    
+    // Drive in reverse with reversed controls
     else
     {
-    driveLeftPower = forward - turn;
-    driveRightPower = forward + turn;
-    setLeftSpeed(driveLeftPower*driveFactor);
-    setRightSpeed(driveRightPower*driveFactor);
-
+      driveLeftPower = forward + turn;
+      driveRightPower = forward - turn;
+      setLeftSpeed(driveLeftPower*driveFactor * -1);
+      setRightSpeed(driveRightPower*driveFactor * -1);
     }
     /* Op controlls */
 
@@ -568,22 +564,18 @@ public class Robot extends TimedRobot {
     //CTS
     if(opController.getRawButton(5))
     {
-      turningSpeed = -0.5;
       turningSpeed = -0.55;
     }
     else if(opController.getRawButton(6))
     {
-      turningSpeed = -0.5;
       turningSpeed = -0.55;
     }
     else if(opController.getRawButton(3))
     {
-      turningSpeed = 0.5;
       turningSpeed = 0.55;
     }
     else if(opController.getRawButton(4))
     {
-      turningSpeed = 0.5;
       turningSpeed = 0.55;
     }
     else if(opController.getRawButton(1))
