@@ -71,7 +71,7 @@ public class Robot extends TimedRobot {
     driveRightB.set(0.0);
     turningArm.set(0.0);
 
-    System.err.println("Unknown Error: All motors set to zero.");
+    System.err.println("Safe State: All motors set to zero.");
   }
 
   private double k_MotorSpeed() {
@@ -163,7 +163,8 @@ public class Robot extends TimedRobot {
   
   // Autonomous global variables
   private double t_max_autonomous = 15;  // max step time cannot exceed autonomous time, safety measure
-  private double accel_rate; // set elsewhere
+  private double accel_rate, motorCommand = 0; // set elsewhere
+  private int numSteps;
   private boolean stepInitialized[], forward; 
   private driveMode Mode[];
   private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step;
@@ -206,7 +207,7 @@ public class Robot extends TimedRobot {
   };
   
   private double[] centerMagnitudes = {
-    67.25, // stop just before the reef
+    67, // stop just before the reef
     0.8, // eject for 0.8 seconds
     -12, // back up 12 inches 
     90   // turn right 90 degrees
@@ -255,9 +256,9 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void autonomousInit() {
-    m_autoSelected = m_chooser.getSelected(); // is this used?
+    //m_autoSelected = m_chooser.getSelected(); // is this used?
     // m_autoSelected = SmartDashboard.getString("Auto Selector", kDefaultAuto);
-    System.out.println("Auto selected: " + m_autoSelected);
+    //System.out.println("Auto selected: " + m_autoSelected);
 
     // Reset safety faults
     safetyFaultActive = false;
@@ -267,7 +268,7 @@ public class Robot extends TimedRobot {
     
     // Calibrate: Pick a routine
     startLoc routine = startLoc.CENTER;
-    System.out.println(routine + "Routine Loaded");
+    System.out.println(routine + " Routine Loaded");
     
     // Load the autonomous routine
     switch (routine) {
@@ -295,8 +296,19 @@ public class Robot extends TimedRobot {
         break;
     }
 
+    numSteps = Mode.length;
+
+    // Print the values to the console:
+    System.out.println("Number of steps: " + numSteps);
+
     // Initialize array to false (default)
-    stepInitialized = new boolean[Mode.length];
+    stepInitialized = new boolean[numSteps];
+    
+    // Initialize start time
+    stepStartTime = new double[numSteps];
+
+    // Initialize the motor command to zero
+    motorCommand = 0;
 
   }
 
@@ -310,11 +322,12 @@ public class Robot extends TimedRobot {
     double velocity_target = 0;
     double v_max = 0;
     double distance = 0;
-    double stepTime, motorCommand;
+    double stepTime;
 
 
     // Check for end of routine
-    if (stepIdx > Mode.length) {
+    // index starts at zero and increments to (numSteps - 1)
+    if (stepIdx >= numSteps) {
       safeState(); // Set all motors to zero
       System.out.println("All Steps Complete");
       return;
@@ -323,12 +336,19 @@ public class Robot extends TimedRobot {
     // Initialize the drive or turn calculation
     if (!stepInitialized[stepIdx]) {
       
+      // Log
+      System.out.println("Initializing Step " + (stepIdx+1) + " of " + numSteps + ": " + Mode[stepIdx]);
+
       // Start the drive timer
       stepStartTime[stepIdx] = Timer.getFPGATimestamp();
 
       /* These variables may or may not change in each periodic, but are calculated again here, just in case*/
       loop_s = getPeriod(); 
       k = k_MotorSpeed();
+
+      // Print the values to the console:
+      System.out.println("looptime: " + loop_s);
+      System.out.println("Motor Conversion k: " + k);
 
       // Negative motor speed commands are not supported here
       // To drive backwards, command negative distance
@@ -345,8 +365,14 @@ public class Robot extends TimedRobot {
       }
       Magnitude[stepIdx] = Math.abs(Magnitude[stepIdx]);
 
+      // Log
+      System.out.println("Motor Command: " + Magnitude[stepIdx]);
+
       // Convert motor speed command to inches per second
       double v_command_ips = k * MotorCommands[stepIdx];
+
+      // Log
+      System.out.println("Velocity Command: " + v_command_ips + " in/s");
 
       // Define wheel distance to travel
       switch (Mode[stepIdx]) {
@@ -398,17 +424,31 @@ public class Robot extends TimedRobot {
           break;              
       }
 
+      // Log
+      System.out.println("Accel Rate: " + accel_rate + " in/s/s");
+      System.out.println("Distance Comnand: " + distance + " in");
+
       // Convert acceleration rate to motor step per loop
       M_step = (accel_rate * loop_s ) / k;
+
+      // Log
+      System.out.println("Motor Step: " + M_step + " per loop");
 
       // This adjustment factor accounts for estimated error in the ramp rate function
       // If controller loop rate is changed, this factor will change
       distance = distance + 1.65 * MotorCommands[stepIdx];
+
+      // Log
+      System.out.println("Adjusted distance: " + distance + " in");      
       
       // Maximum velocity that can be achieved in the distance given
       // assuming accel rate is equal to decel rate
       v_max = Math.sqrt(accel_rate * distance);
       velocity_target = Math.min(v_command_ips,v_max); // clipped command
+
+      // Log
+      System.out.println("Max Velocity for Distance: " + v_max + " in/s");
+      System.out.println("Target Velocity: " + velocity_target);
 
       // Error if arbitrated motor speed is 0
       if (velocity_target <= 0) {
@@ -422,6 +462,10 @@ public class Robot extends TimedRobot {
       // Calculate total time
       t_total_s = distance/velocity_target + t_accel; 
 
+      // Log
+      System.out.println("Total Motor On Time: " + t_total_s + " seconds");
+      System.out.println("Ramp Time (each): " + t_accel + " seconds");
+
       // If drive mode is PAUSE, override time with PAUSE time
       if (Mode[stepIdx] == driveMode.PAUSE) {
         t_total_s = Magnitude[stepIdx];
@@ -431,13 +475,19 @@ public class Robot extends TimedRobot {
       if ((t_total_s <= 0) || (t_total_s > t_max_autonomous)) {
         setSafetyFault("Calculated step time is invalid");
       }
+
+      // Initialize the motor command to zero
+      motorCommand = 0;
+
+      // Set initialization complete
       stepInitialized[stepIdx] = true;
+
+      // Log
+      System.out.println("Step " + (stepIdx+1) + " of " + numSteps + ": Initialization Complete");
     } 
 
     // Measure current drive time for this step
     stepTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
-
-    motorCommand = 0; // Initialize the motor command to zero
 
     if (stepTime < t_accel) {
       // Ramp up motor command
@@ -513,7 +563,7 @@ public class Robot extends TimedRobot {
     if (stepTime >= t_total_s){
       safeState(); // Go to a safe state
       stepIdx = stepIdx + 1; // Go to the next step (in the next loop)
-      System.out.println("Step " + stepIdx + " Complete");      
+      System.out.println("Step " + (stepIdx+1) + " Complete");      
     }
   }
     
