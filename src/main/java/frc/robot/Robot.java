@@ -201,24 +201,15 @@ public class Robot extends TimedRobot {
   // Calibrate: CENTER Autonomous Routine
   private driveMode[] centerModes = {
     driveMode.DRIVE,
-    driveMode.EJECT,
-    driveMode.DRIVE,
-    driveMode.TURN,
   };
   
   private double[] centerMagnitudes = {
-    67, // stop just before the reef
-    0.8, // eject for 0.8 seconds
-    -12, // back up 12 inches 
-    90   // turn right 90 degrees
+    88, // stop just before the reef
   };
 
   /* motor command for each step */
   private double[] centerMotorCommands = {
-    0.25, 
-    0.75, 
-    0.25, 
-    0.25  
+    0.5, 
   };
 
   // Calibrate: RIGHT Autonomous Routine
@@ -339,9 +330,7 @@ public class Robot extends TimedRobot {
       // Log
       System.out.println("Initializing Step " + (stepIdx+1) + " of " + numSteps + ": " + Mode[stepIdx]);
 
-      // Start the drive timer
-      stepStartTime[stepIdx] = Timer.getFPGATimestamp();
-
+      
       /* These variables may or may not change in each periodic, but are calculated again here, just in case*/
       loop_s = getPeriod(); 
       k = k_MotorSpeed();
@@ -366,7 +355,8 @@ public class Robot extends TimedRobot {
       Magnitude[stepIdx] = Math.abs(Magnitude[stepIdx]);
 
       // Log
-      System.out.println("Motor Command: " + Magnitude[stepIdx]);
+      System.out.println("Magnitude: " + Magnitude[stepIdx]);
+      System.out.println("Motor Command: " + MotorCommands[stepIdx]);
 
       // Convert motor speed command to inches per second
       double v_command_ips = k * MotorCommands[stepIdx];
@@ -385,7 +375,7 @@ public class Robot extends TimedRobot {
             // acceleration rate for DRIVE steps
             // should be between 100 and 600
             // Calibrate: Max without prevent slipping
-            accel_rate = 200;
+            accel_rate = 100;
             break;
           
           case TURN:
@@ -436,7 +426,7 @@ public class Robot extends TimedRobot {
 
       // This adjustment factor accounts for estimated error in the ramp rate function
       // If controller loop rate is changed, this factor will change
-      distance = distance + 1.65 * MotorCommands[stepIdx];
+      // distance = distance + 1.65 * MotorCommands[stepIdx];
 
       // Log
       System.out.println("Adjusted distance: " + distance + " in");      
@@ -479,6 +469,9 @@ public class Robot extends TimedRobot {
       // Initialize the motor command to zero
       motorCommand = 0;
 
+      // Start the drive timer
+      stepStartTime[stepIdx] = Timer.getFPGATimestamp();
+
       // Set initialization complete
       stepInitialized[stepIdx] = true;
 
@@ -489,9 +482,15 @@ public class Robot extends TimedRobot {
     // Measure current drive time for this step
     stepTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
 
+    System.out.println("Step Time: " + stepTime);
+    System.out.println("t_accel: " + t_accel);
+
     if (stepTime < t_accel) {
       // Ramp up motor command
       motorCommand = motorCommand + M_step;
+
+      System.out.println("motorStep: " + M_step);
+      System.out.println("motorCommand: " + motorCommand);
 
     } else if (stepTime >= (t_total_s - t_accel)) {
       // Ramp down speed
