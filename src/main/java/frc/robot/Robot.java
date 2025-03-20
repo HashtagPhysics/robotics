@@ -436,7 +436,7 @@ public class Robot extends TimedRobot {
 
       // This adjustment factor accounts for estimated error in the ramp rate function
       // If controller loop rate is changed, this factor will change
-      // distance = distance + 1.65 * MotorCommands[stepIdx];
+      distance = distance + 1.65 * MotorCommands[stepIdx];
 
       // Log
       System.out.println("Adjusted distance: " + distance + " in");      
