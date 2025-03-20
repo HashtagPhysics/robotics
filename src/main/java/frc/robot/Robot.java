@@ -226,16 +226,19 @@ public class Robot extends TimedRobot {
     driveMode.DRIVE,
     driveMode.TURN,
     driveMode.DRIVE,
-    driveMode.TURN
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.DRIVE,
+    driveMode.EJECT
   };
   
   private double[] centerMagnitudes = {
-    67, // stop just before the reef
-    40, // eject "inches"
-    -12, // reverse inches
-    60, // right degrees
-    88,  // forward inches
-    -60 // left degrees
+    67,  // stop just before the reef "inches"
+    40,  // eject "inches"
+    -88, // reverse "inches"
+    269, // right (or left if you make negitive) "degrees"
+    88,  // forward "inches"
+    -60  // left (or right if you make positive) "degrees"
   };
 
   /* motor command for each step */
