@@ -71,7 +71,11 @@ public class Robot extends TimedRobot {
     driveRightB.set(0.0);
     turningArm.set(0.0);
 
-    System.err.println("Safe State: All motors set to zero.");
+    // Only display message on first call
+    if (DisplaySafeState) {
+      System.err.println("Safe State: All motors set to zero.");
+      DisplaySafeState = false;
+    }
   }
 
   private double k_MotorSpeed() {
@@ -101,6 +105,7 @@ public class Robot extends TimedRobot {
 
   /* Global variables */
   boolean safetyFaultActive = false;
+  boolean DisplaySafeState = true;
   double driveFactor = 0.6;
   double autoStart = 0;
   private static final String kDefaultAuto = "Default";
@@ -165,7 +170,7 @@ public class Robot extends TimedRobot {
   private double t_max_autonomous = 15;  // max step time cannot exceed autonomous time, safety measure
   private double accel_rate, motorCommand = 0; // set elsewhere
   private int numSteps;
-  private boolean stepInitialized[], forward; 
+  private boolean stepInitialized[], forward, AutonomousComplete = false, TimerStarted; 
   private driveMode Mode[];
   private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step;
   private int stepIdx;
@@ -320,7 +325,12 @@ public class Robot extends TimedRobot {
     // index starts at zero and increments to (numSteps - 1)
     if (stepIdx >= numSteps) {
       safeState(); // Set all motors to zero
-      System.out.println("All Steps Complete");
+      
+      // Display complete message once
+      if (!AutonomousComplete) {
+        System.out.println("All Steps Complete");
+        AutonomousComplete = true;
+      }
       return;
     }
 
@@ -469,100 +479,114 @@ public class Robot extends TimedRobot {
       // Initialize the motor command to zero
       motorCommand = 0;
 
-      // Start the drive timer
-      stepStartTime[stepIdx] = Timer.getFPGATimestamp();
+      // Reset Timer Boolean
+      TimerStarted = false;
 
       // Set initialization complete
       stepInitialized[stepIdx] = true;
 
       // Log
       System.out.println("Step " + (stepIdx+1) + " of " + numSteps + ": Initialization Complete");
-    } 
-
-    // Measure current drive time for this step
-    stepTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
-
-    System.out.println("Step Time: " + stepTime);
-    System.out.println("t_accel: " + t_accel);
-
-    if (stepTime < t_accel) {
-      // Ramp up motor command
-      motorCommand = motorCommand + M_step;
-
-      System.out.println("motorStep: " + M_step);
-      System.out.println("motorCommand: " + motorCommand);
-
-    } else if (stepTime >= (t_total_s - t_accel)) {
-      // Ramp down speed
-      motorCommand = motorCommand - M_step;
-
+    
+    // Step has been initialized, calculate step commands
     } else {
-      // constant at target velocity
-      motorCommand = velocity_target / k;
-    }
 
-    // Clip motor command between 0 and 1;
-    motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
+      // Execute the step timer
+      if (!TimerStarted){
+        // Start the timer
+        stepStartTime[stepIdx] = Timer.getFPGATimestamp();
+        stepTime = 0;
+        TimerStarted = true;
 
-    if (safetyFaultActive) {
-      // Fault active, go to safe state
-      safeState();
-      System.err.println("Error: Safety Fault Active, Exiting Routine");
-      return; // exit autonomous
-
-    } else {
-      // Set Motor Commands
-      switch (Mode[stepIdx]) {
-        case DRIVE:
-          if (forward){
-            // drive forward
-            setLeftSpeed(motorCommand);
-            setRightSpeed(motorCommand);
-    
-          } else {
-            // drive backward
-            setLeftSpeed(-motorCommand);
-            setRightSpeed(-motorCommand);
-          }
-                              
-        break;
-      
-        case TURN:
-          if (forward){
-            // Right turn
-            setLeftSpeed(motorCommand);
-            setRightSpeed(-motorCommand);
-    
-          } else {
-            // Left turn
-            setLeftSpeed(-motorCommand);
-            setRightSpeed(motorCommand);
-          }
-
-        case EJECT:
-          if (forward){
-            // Eject Coral
-            turningArm.set(motorCommand);
-    
-          } else {
-            // Spin Ejector Backwards
-            turningArm.set(-motorCommand);
-
-          }
-          case PAUSE:
-            // do nothing
-        break;
-        default:
-        setSafetyFault("Invalid Step Mode Commanded");
-          break;              
+      } else {
+        // Measure current drive time for this step
+        stepTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
       }
-    }
 
-    // Check for step complete
-    if (stepTime >= t_total_s){
-      safeState(); // Go to a safe state
-      stepIdx = stepIdx + 1; // Go to the next step (in the next loop)
-      System.out.println("Step " + (stepIdx+1) + " Complete");      
+      if (stepTime < t_accel) {
+        // Ramp up motor command
+        motorCommand = motorCommand + M_step;
+
+      } else if (stepTime >= (t_total_s - t_accel)) {
+        // Ramp down speed
+        motorCommand = motorCommand - M_step;
+
+      } else {
+        // constant at target velocity
+        motorCommand = velocity_target / k;
+      }
+
+      System.out.println("Step Time: " + stepTime);
+      //System.out.println("motorCommand: " + motorCommand);
+
+      // Clip motor command between 0 and 1;
+      motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
+
+      //System.out.println("motorCommand: " + motorCommand);
+
+      if (safetyFaultActive) {
+        // Fault active, go to safe state
+        safeState();
+        System.err.println("Error: Safety Fault Active, Exiting Routine");
+        return; // exit autonomous
+
+      } else {
+        // Set Motor Commands
+        switch (Mode[stepIdx]) {
+          case DRIVE:
+            if (forward){
+              // drive forward
+              setLeftSpeed(motorCommand);
+              setRightSpeed(motorCommand);
+              System.out.println("Drive Forward: " + motorCommand);
+      
+            } else {
+              // drive backward
+              setLeftSpeed(-motorCommand);
+              setRightSpeed(-motorCommand);
+              System.out.println("Drive Backward: " + motorCommand);
+            }
+                                
+          break;
+        
+          case TURN:
+            if (forward){
+              // Right turn
+              setLeftSpeed(motorCommand);
+              setRightSpeed(-motorCommand);
+      
+            } else {
+              // Left turn
+              setLeftSpeed(-motorCommand);
+              setRightSpeed(motorCommand);
+            }
+
+          case EJECT:
+            if (forward){
+              // Eject Coral
+              turningArm.set(motorCommand);
+      
+            } else {
+              // Spin Ejector Backwards
+              turningArm.set(-motorCommand);
+
+            }
+            case PAUSE:
+              // do nothing
+          break;
+          default:
+          setSafetyFault("Invalid Step Mode Commanded");
+            break;              
+        }
+      }
+
+      // Check for step complete
+      if (stepTime >= t_total_s){
+        safeState(); // Go to a safe state
+        DisplaySafeState = true; // reset safe state display        
+        stepIdx = stepIdx + 1; // Go to the next step (in the next loop)
+        System.out.println("Step " + (stepIdx+1) + " Complete");      
+      }
     }
   }
     
