@@ -113,8 +113,6 @@ public class Robot extends TimedRobot {
   private String m_autoSelected;
   private final SendableChooser<String> m_chooser = new SendableChooser<>();
   
-  
-  
   SparkMaxConfig configInverted = new SparkMaxConfig();
   SparkMaxConfig config = new SparkMaxConfig();
   SparkBase.ResetMode resetMode;
@@ -139,10 +137,7 @@ public class Robot extends TimedRobot {
     driveLeftB.configure(configInverted, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
     driveRightA.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
     driveRightB.configure(config, resetMode.kResetSafeParameters, persistMode.kPersistParameters);
-    
-
-
-
+  
     m_chooser.setDefaultOption("Default Auto", kDefaultAuto);
     m_chooser.addOption("My Auto", kCustomAuto);
     SmartDashboard.putData("Auto choices", m_chooser);
@@ -163,12 +158,13 @@ public class Robot extends TimedRobot {
   private double k = k_MotorSpeed(); // calculate motor speed conversion factor
 
   /* These are the available routines and drive modes */
-  private enum startLoc {LEFT, CENTER, RIGHT};
+  private enum startLoc {TEST, LEFT, CENTER, RIGHT};
   private enum driveMode { DRIVE, TURN, EJECT, PAUSE }
   
   // Autonomous global variables
   private double t_max_autonomous = 15;  // max step time cannot exceed autonomous time, safety measure
   private double accel_rate, motorCommand = 0; // set elsewhere
+  private double velocity_target = 0;
   private int numSteps;
   private boolean stepInitialized[], forward, AutonomousComplete = false, TimerStarted; 
   private driveMode Mode[];
@@ -176,15 +172,29 @@ public class Robot extends TimedRobot {
   private int stepIdx;
 
   // Calibrate: Set robot track width in inches
-  private double trackwidth = 24;
+  private double trackwidth = 21.5;
 
   // Calibrate: Motor start and stop commands
   // These are the initial and final motor command targets
   // to overcome friction and inertia
-  private double motorCommand_start = 0.1;
-  private double motorCommand_stop = -0.1;
+  private double motorCommand_start = 0; // 0 to 0.3
+  private double motorCommand_stop = 0;  // -0.3 to 0
 
   /* The Autonomous Routines are defined here */
+
+    // Calibrate: TEST Autonomous Routine
+    private driveMode[] testModes = {
+      driveMode.DRIVE
+    };
+    
+    private double[] testMagnitudes = {
+      67 // stop just before the reef
+    };
+  
+    /* motor command for each step */
+    private double[] testMotorCommands = {
+      0.5  
+    };
 
   // Calibrate: LEFT Autonomous Routine
   private driveMode[] leftModes = {
@@ -195,8 +205,8 @@ public class Robot extends TimedRobot {
   };
   
   private double[] leftMagnitudes = {
-    87, // stop just before the reef
-    0.8, // eject for 0.8 seconds
+    87,  // stop just before the reef
+    40,  // eject "inches"
     -12, // back up 12 inches 
     90   // turn right 90 degrees
   };
@@ -212,15 +222,30 @@ public class Robot extends TimedRobot {
   // Calibrate: CENTER Autonomous Routine
   private driveMode[] centerModes = {
     driveMode.DRIVE,
+    driveMode.EJECT,
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.TURN
   };
   
   private double[] centerMagnitudes = {
-    88, // stop just before the reef
+    67, // stop just before the reef
+    40, // eject "inches"
+    -12, // reverse inches
+    60, // right degrees
+    88,  // forward inches
+    -60 // left degrees
   };
 
   /* motor command for each step */
   private double[] centerMotorCommands = {
-    0.5, 
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
   };
 
   // Calibrate: RIGHT Autonomous Routine
@@ -269,12 +294,18 @@ public class Robot extends TimedRobot {
     stepIdx = 0;
     
     // Calibrate: Pick a routine
-    startLoc routine = startLoc.CENTER;
+    startLoc routine = startLoc.TEST;
     System.out.println(routine + " Routine Loaded");
     
     // Load the autonomous routine
     switch (routine) {
 
+      case TEST:
+        Mode = testModes;
+        Magnitude = testMagnitudes;
+        MotorCommands = testMotorCommands;
+        break;
+      
       case LEFT:
         Mode = leftModes;
         Magnitude = leftMagnitudes;
@@ -321,7 +352,6 @@ public class Robot extends TimedRobot {
 
     // Initialize variables
     // These values get overwritten
-    double velocity_target = 0;
     double v_max = 0;
     double distance = 0;
     double stepTime;
@@ -351,18 +381,17 @@ public class Robot extends TimedRobot {
       loop_s = getPeriod(); 
       k = k_MotorSpeed();
 
-      // Print the values to the console:
-      System.out.println("looptime: " + loop_s);
-      System.out.println("Motor Conversion k: " + k);
+      //System.out.println("looptime: " + loop_s);
+      //System.out.println("Motor Conversion k: " + k);
 
-      // Negative motor speed commands are not supported here
-      // To drive backwards, command negative distance
-      // To turn left, command negative angle
+      /* Negative motor speed commands are not supported here
+      To drive backwards, command negative distance
+      To turn left, command negative angle */
       if (MotorCommands[stepIdx] <= 0) {
         setSafetyFault("Motor command is negative in drive or turn function");
       }
 
-      // Convert negative distance to direction
+      /* Convert negative distance to direction */
       forward = true;
       if (Magnitude[stepIdx] < 0) {
         // backwards
@@ -370,56 +399,55 @@ public class Robot extends TimedRobot {
       }
       Magnitude[stepIdx] = Math.abs(Magnitude[stepIdx]);
 
-      // Log
       System.out.println("Magnitude: " + Magnitude[stepIdx]);
       System.out.println("Motor Command: " + MotorCommands[stepIdx]);
 
-      // Convert motor speed command to inches per second
+      /* Convert motor speed command to inches per second */
       double v_command_ips = k * MotorCommands[stepIdx];
 
-      // Log
-      System.out.println("Velocity Command: " + v_command_ips + " in/s");
+      //System.out.println("Velocity Command: " + v_command_ips + " in/s");
 
-      // Define wheel distance to travel
+      /* Define wheel distance to travel */
       switch (Mode[stepIdx]) {
           case DRIVE:
           
-            // DRIVE works in terms of distance
-            // (both wheels moving together)
+            /* DRIVE works in terms of distance
+            (both wheels moving together) */
             distance = Magnitude[stepIdx];
 
-            // acceleration rate for DRIVE steps
-            // should be between 100 and 600
-            // Calibrate: Max without prevent slipping
-            accel_rate = 100;
+            /* Calibrate: Max without prevent slipping 
+            acceleration rate for DRIVE steps
+            should be between 100 and 600 */
+            accel_rate = 300;
             break;
           
           case TURN:
 
-            // acceleration rate for DRIVE steps
-            // should be between 100 and 600
-            // Calibrate: Max without prevent slipping
-            accel_rate = 200;
+            /* Calibrate: Max without prevent slipping 
+            acceleration rate for TURN steps
+            should be between 100 and 600 */
+            accel_rate = 300;
 
-            // TURN works in terms of angle which converts to distance (arclength)
-            // (wheels turning in opposite directions)
+            /* TURN works in terms of angle which converts to distance (arclength)
+            (wheels turning in opposite directions) */
             distance = (trackwidth * Math.PI * Magnitude[stepIdx]) / 360.0;
             break;
 
           case EJECT:
-            // No ramp needed for ejecting
+            /* No ramp needed for ejecting */
             accel_rate = 9999;
 
-            // For simplicity, EJECT magnitude is actually calculated as a distance, same as the other drive modes
+            /* For simplicity, EJECT magnitude is actually 
+            calculated as a distance, same as the other drive modes */
             distance = Magnitude[stepIdx];            
             break;
 
           case PAUSE:
           
-            // PAUSE is not actually distance, but time instead
+            /* PAUSE is not actually distance, but time instead */
             distance = Magnitude[stepIdx];
             
-            // Not applicable to PAUSE
+            /* Not applicable to PAUSE */
             accel_rate = 9999;
             break;
 
@@ -430,35 +458,31 @@ public class Robot extends TimedRobot {
           break;              
       }
 
-      // Log
       System.out.println("Accel Rate: " + accel_rate + " in/s/s");
       System.out.println("Distance Comnand: " + distance + " in");
 
-      // Convert acceleration rate to motor step per loop
+      /* Convert acceleration rate to motor step per loop */
       M_step_up = (accel_rate / k - motorCommand_start) * loop_s;
       M_step_down = (accel_rate / k - motorCommand_stop) * loop_s;
 
-      // Log
-      System.out.println("Motor Step Up: " + M_step_up + " per loop");
-      System.out.println("Motor Step Down: " + M_step_down + " per loop");
+      //System.out.println("Motor Step Up: " + M_step_up + " per loop");
+      //System.out.println("Motor Step Down: " + M_step_down + " per loop");
 
-      // This adjustment factor accounts for estimated error in the ramp rate function
-      // If controller loop rate is changed, this factor will change
+      /* This adjustment factor accounts for estimated error in the ramp rate function
+      If controller loop rate is changed, this factor will change */
       distance = distance + 1.65 * MotorCommands[stepIdx];
 
-      // Log
-      System.out.println("Adjusted distance: " + distance + " in");      
+      //System.out.println("Adjusted distance: " + distance + " in");      
       
-      // Maximum velocity that can be achieved in the distance given
-      // assuming accel rate is equal to decel rate
+      /* Maximum velocity that can be achieved in the distance given
+      assuming accel rate is equal to decel rate */
       v_max = Math.sqrt(accel_rate * distance);
       velocity_target = Math.min(v_command_ips,v_max); // clipped command
 
-      // Log
-      System.out.println("Max Velocity for Distance: " + v_max + " in/s");
-      System.out.println("Target Velocity: " + velocity_target);
+      //System.out.println("Max Velocity for Distance: " + v_max + " in/s");
+      //System.out.println("Target Velocity: " + velocity_target);
 
-      // Error if arbitrated motor speed is 0
+      /* Error if arbitrated motor speed is 0 */
       if (velocity_target <= 0) {
         safetyFaultActive = true;
         System.err.println("Error: Arbitrated motor speed is zero");      
@@ -470,125 +494,130 @@ public class Robot extends TimedRobot {
       // Calculate total time
       t_total_s = distance/velocity_target + t_accel; 
 
-      // Log
       System.out.println("Total Motor On Time: " + t_total_s + " seconds");
       System.out.println("Ramp Time (each): " + t_accel + " seconds");
 
-      // If drive mode is PAUSE, override time with PAUSE time
+      /* If drive mode is PAUSE, override time with PAUSE time */
       if (Mode[stepIdx] == driveMode.PAUSE) {
         t_total_s = Magnitude[stepIdx];
       }
 
-      // Error if arbitrated motor speed is 0
+      /* Error if arbitrated motor speed is 0 */
       if ((t_total_s <= 0) || (t_total_s > t_max_autonomous)) {
         setSafetyFault("Calculated step time is invalid");
       }
 
-      // Initialize the motor command to start value
+      /* Initialize the motor command to start value */
       motorCommand = motorCommand_start;
 
-      // Reset Timer Boolean
+      /* Reset Timer Boolean */
       TimerStarted = false;
 
-      // Set initialization complete
+      /* Set initialization complete */
       stepInitialized[stepIdx] = true;
 
-      // Log
       System.out.println("Step " + (stepIdx+1) + " of " + numSteps + ": Initialization Complete");
     
-    // Step has been initialized, calculate step commands
+    /* Step has been initialized, calculate step commands */
     } else {
 
-      // Execute the step timer
+      /* Execute the step timer */
       if (!TimerStarted){
-        // Start the timer
+        /* Start the timer */
         stepStartTime[stepIdx] = Timer.getFPGATimestamp();
         stepTime = 0;
         TimerStarted = true;
 
       } else {
-        // Measure current drive time for this step
+        /* Measure current drive time for this step */
         stepTime = Timer.getFPGATimestamp() - stepStartTime[stepIdx];
       }
 
       if (stepTime < t_accel) {
-        // Ramp up motor command
+        /* Ramp up motor command */
         motorCommand = motorCommand + M_step_up;
 
       } else if (stepTime >= (t_total_s - t_accel)) {
-        // Ramp down speed
+        /* Ramp down speed */
         motorCommand = motorCommand - M_step_down;
 
       } else {
-        // constant at target velocity
+        /* constant at target velocity */
         motorCommand = velocity_target / k;
       }
 
       System.out.println("Step Time: " + stepTime);
       //System.out.println("motorCommand: " + motorCommand);
 
-      // Clip motor command between limits;
+      /* Clip motor command between limits (usually 0 to 1) */
       motorCommand = Math.max(Math.min(motorCommand, 1), motorCommand_stop);
 
       //System.out.println("motorCommand: " + motorCommand);
 
+      /* Fault active, go to safe state */
       if (safetyFaultActive) {
-        // Fault active, go to safe state
         safeState();
         System.err.println("Error: Safety Fault Active, Exiting Routine");
         return; // exit autonomous
 
       } else {
-        // Set Motor Commands
+        /* Set Motor Commands */
         switch (Mode[stepIdx]) {
           case DRIVE:
             if (forward){
               // drive forward
               setLeftSpeed(motorCommand);
               setRightSpeed(motorCommand);
-              System.out.println("Drive Forward: " + motorCommand);
+              System.out.println("Driving Forward: " + motorCommand);
       
             } else {
               // drive backward
               setLeftSpeed(-motorCommand);
               setRightSpeed(-motorCommand);
-              System.out.println("Drive Backward: " + motorCommand);
+              System.out.println("Driving Backward: " + motorCommand);
             }
-                                
-          break;
+            break;
         
           case TURN:
             if (forward){
-              // Right turn
+              /* Right turn */
               setLeftSpeed(motorCommand);
               setRightSpeed(-motorCommand);
+              System.out.println("Turning Right: " + motorCommand);
       
             } else {
-              // Left turn
+              /* Left turn */
               setLeftSpeed(-motorCommand);
               setRightSpeed(motorCommand);
+              System.out.println("Turning Left: " + motorCommand);
             }
+            break;
 
           case EJECT:
             if (forward){
-              // Eject Coral
+              /* Eject Coral */
               turningArm.set(motorCommand);
+              System.out.println("Ejecting: " + motorCommand);
       
             } else {
-              // Spin Ejector Backwards
+              /* Spin Ejector Backwards */
               turningArm.set(-motorCommand);
-
+              System.out.println("Reverse Ejecting: " + motorCommand);
             }
-            case PAUSE:
-              // do nothing
-          break;
+            break;
+
+          case PAUSE:
+            /* Do Nothing */
+            System.out.println("Pausing: " + motorCommand);
+            break;
+
           default:
-          setSafetyFault("Invalid Step Mode Commanded");
+            setSafetyFault("Invalid Step Mode Commanded");
             break;              
         }
       }
 
-      // Check for step complete
+      /* Check for step complete */
       if (stepTime >= t_total_s){
         safeState(); // Go to a safe state
         DisplaySafeState = true; // reset safe state display        
@@ -598,11 +627,11 @@ public class Robot extends TimedRobot {
     }
   }
     
-  /** This function is called once when teleop is enabled. */
+  /* This function is called once when teleop is enabled. */
   @Override
   public void teleopInit() {}
 
-  /** This function is called periodically during operator control. */
+  /* This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
     /* Driver contols */
