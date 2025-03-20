@@ -172,12 +172,18 @@ public class Robot extends TimedRobot {
   private int numSteps;
   private boolean stepInitialized[], forward, AutonomousComplete = false, TimerStarted; 
   private driveMode Mode[];
-  private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step;
+  private double Magnitude[], MotorCommands[], stepStartTime[], t_total_s, t_accel, M_step_up, M_step_down;
   private int stepIdx;
 
   // Calibrate: Set robot track width in inches
   private double trackwidth = 24;
-  
+
+  // Calibrate: Motor start and stop commands
+  // These are the initial and final motor command targets
+  // to overcome friction and inertia
+  private double motorCommand_start = 0.1;
+  private double motorCommand_stop = -0.1;
+
   /* The Autonomous Routines are defined here */
 
   // Calibrate: LEFT Autonomous Routine
@@ -429,10 +435,12 @@ public class Robot extends TimedRobot {
       System.out.println("Distance Comnand: " + distance + " in");
 
       // Convert acceleration rate to motor step per loop
-      M_step = (accel_rate * loop_s ) / k;
+      M_step_up = (accel_rate / k - motorCommand_start) * loop_s;
+      M_step_down = (accel_rate / k - motorCommand_stop) * loop_s;
 
       // Log
-      System.out.println("Motor Step: " + M_step + " per loop");
+      System.out.println("Motor Step Up: " + M_step_up + " per loop");
+      System.out.println("Motor Step Down: " + M_step_down + " per loop");
 
       // This adjustment factor accounts for estimated error in the ramp rate function
       // If controller loop rate is changed, this factor will change
@@ -476,8 +484,8 @@ public class Robot extends TimedRobot {
         setSafetyFault("Calculated step time is invalid");
       }
 
-      // Initialize the motor command to zero
-      motorCommand = 0;
+      // Initialize the motor command to start value
+      motorCommand = motorCommand_start;
 
       // Reset Timer Boolean
       TimerStarted = false;
@@ -505,11 +513,11 @@ public class Robot extends TimedRobot {
 
       if (stepTime < t_accel) {
         // Ramp up motor command
-        motorCommand = motorCommand + M_step;
+        motorCommand = motorCommand + M_step_up;
 
       } else if (stepTime >= (t_total_s - t_accel)) {
         // Ramp down speed
-        motorCommand = motorCommand - M_step;
+        motorCommand = motorCommand - M_step_down;
 
       } else {
         // constant at target velocity
@@ -519,8 +527,8 @@ public class Robot extends TimedRobot {
       System.out.println("Step Time: " + stepTime);
       //System.out.println("motorCommand: " + motorCommand);
 
-      // Clip motor command between 0 and 1;
-      motorCommand = Math.max(Math.min(motorCommand, 1.0), 0.0);
+      // Clip motor command between limits;
+      motorCommand = Math.max(Math.min(motorCommand, 1), motorCommand_stop);
 
       //System.out.println("motorCommand: " + motorCommand);
 
