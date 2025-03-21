@@ -78,12 +78,18 @@ public class Robot extends TimedRobot {
     }
   }
 
-  private double k_MotorSpeed() {
+  private double k_MotorSpeed(double motorSpeed) {
     // Add voltage compensation logic later, if needed
 
-    // Calibrate: factor k = speed in inches per second / motor speed command
-    double k = 149;
+    double k;
 
+    // Calibrate: factor k = speed in inches per second / motor speed command
+    if (motorSpeed < 0.4) { 
+      k = 129;
+    } else {
+      k = 19.37 * motorSpeed + 96.39;
+    }
+    
     double k_default = 150; // only returned in case of error
 
     if (k == 0) {
@@ -91,7 +97,6 @@ public class Robot extends TimedRobot {
       System.err.println("Error: k_MotorSpeed() returned zero!");
       k = k_default;
     }
-
     return k;
   }
 
@@ -154,8 +159,8 @@ public class Robot extends TimedRobot {
   public void robotPeriodic() {}
 
   /* Autonomous Mode Global Definitions */
-  private double loop_s = getPeriod(); // automatically get loop rate in seconds, typically 0.02s at 50Hz
-  private double k = k_MotorSpeed(); // calculate motor speed conversion factor
+  private double loop_s; 
+  private double k; 
 
   /* These are the available routines and drive modes */
   private enum startLoc {TEST, LEFT, CENTER, RIGHT};
@@ -187,21 +192,24 @@ public class Robot extends TimedRobot {
       driveMode.DRIVE,
       driveMode.EJECT,
       driveMode.DRIVE,
-      driveMode.TURN,
+      driveMode.PAUSE,
+      driveMode.TURN
     };
     
     private double[] testMagnitudes = {
-      67,  // stop just before the reef
-      40,  // Eject
-      -67, // Return to start
-      90,  // right 90 degrees
+      64.75,  // stop just before the reef 79
+      40,     // Eject
+      -64.75, // Return to start
+      5,      // Pause
+      90     // right 90 degrees
     };
   
     /* motor command for each step */
     private double[] testMotorCommands = {
-      0.25,
+      0.6,
+      0.4,
+      0.6,
       0.5,
-      0.25,
       0.25  
     };
 
@@ -209,6 +217,51 @@ public class Robot extends TimedRobot {
   private driveMode[] leftModes = {
     driveMode.DRIVE,
     driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.EJECT,
+    /* driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.PAUSE,
+    driveMode.DRIVE,
+    driveMode.EJECT*/
+  };
+  
+  private double[] leftMagnitudes = {
+    60,   // forward inches
+    58,   // right degrees
+    64,   // forward inches 
+    40,   // eject "inches"
+    /* -90,  // reverse inches
+    -55,  // left degrees
+    170,  // forward inches
+    124,  // right degrees
+    -28,  // reverse inches
+    5,    // WAIT seconds
+    122,  // forward inches
+    40    // eject "inches" */
+  };
+
+  /* motor command for each step */
+  private double[] leftMotorCommands = {
+    0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE
+    0.4, // EJECT
+    /* 0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE 
+    0.5,   // PAUSE
+    0.5, // DRIVE
+    0.4  // EJECT*/
+  };
+
+  // Calibrate: CENTER Autonomous Routine
+  private driveMode[] centerModes = {
     driveMode.DRIVE,
     driveMode.EJECT,
     driveMode.DRIVE,
@@ -221,71 +274,31 @@ public class Robot extends TimedRobot {
     driveMode.EJECT
   };
   
-  private double[] leftMagnitudes = {
-    60,   // forward inches
-    -55,  // left degrees
-    66,   // forward inches 
-    40,   // eject "inches"
-    -75,  // reverse inches
-    55,   // right degrees
-    150,  // forward inches
-    -124, // left degrees
-    -38,  // reverse inches
-    10,   // WAIT seconds
-    125,  // forward inches
-    40    // eject "inches"
-  };
-
-  /* motor command for each step */
-  private double[] leftMotorCommands = {
-    0.5, // DRIVE 
-    0.5, // TURN
-    0.5, // DRIVE
-    0.4,
-    0.5,
-    0.5,  
-    0.5, 
-    0.5, 
-    0.5, 
-    0.5, 
-    0.5, 
-    0,
-    0.5 
-  };
-
-  // Calibrate: CENTER Autonomous Routine
-  private driveMode[] centerModes = {
-    driveMode.DRIVE,
-    driveMode.EJECT,
-    driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.TURN,
-    driveMode.DRIVE,
-    driveMode.DRIVE,
-    driveMode.EJECT
-  };
-  
   private double[] centerMagnitudes = {
-    67,   // Forward inches
-    40,   // eject inches
-    -88,  // reverse inches
-    21,   // right degrees
-    269,  // forward inches
-    -149, // left degrees
-    -15,  // reverse inches
-    126,  // forward inches
-    40    // eject inches
+    65,   // Forward inches
+    40,   // eject "inches"
+    -70,  // reverse inches
+    28,   // right degrees
+    255,  // forward inches
+    -154, // left degrees
+    -13,  // reverse inches
+    5,    // WAIT "seconds"
+    120,  // forward inches
+    40    // eject "inches"
   };
 
   /* motor command for each step */
   private double[] centerMotorCommands = {
     0.5,
+    0.4,
     0.5,
     0.5,
     0.5,
     0.5,
-    0.5
+    0.5,
+    0.5,
+    0.5,
+    0.4
   };
 
   // Calibrate: RIGHT Autonomous Routine
@@ -294,28 +307,45 @@ public class Robot extends TimedRobot {
     driveMode.TURN,
     driveMode.DRIVE,
     driveMode.EJECT,
-    driveMode.DRIVE,
+    /* driveMode.DRIVE,
     driveMode.TURN,
     driveMode.DRIVE,
     driveMode.TURN,
     driveMode.DRIVE,
+    driveMode.PAUSE,
     driveMode.DRIVE,
-    driveMode.EJECT
+    driveMode.EJECT */
   };
   
   private double[] rightMagnitudes = {
-    87, // stop just before the reef
-    0.8, // eject for 0.8 seconds
-    -12, // back up 12 inches 
-    90   // turn right 90 degrees
+    60,   // forward inches
+    -58,  // left degrees
+    64,   // forward inches 
+    40,   // eject "inches"
+    /* -90,  // reverse inches
+    55,   // right degrees
+    170,  // forward inches
+    -124, // left degrees
+    -28,  // reverse inches
+    5,    // WAIT seconds
+    122,  // forward inches
+    40    // eject "inches" */
   };
 
   /* motor command for each step */
   private double[] rightMotorCommands = {
-    0.25, 
-    0.25, 
-    0.25, 
-    0.25  
+    0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE
+    0.4, // EJECT
+    /* 0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE
+    0.5, // TURN
+    0.5, // DRIVE 
+    0.5,   // PAUSE
+    0.5, // DRIVE
+    0.4  // EJECT */
   };
 
   /**
@@ -423,20 +453,20 @@ public class Robot extends TimedRobot {
       // Log
       System.out.println("Initializing Step " + (stepIdx+1) + " of " + numSteps + ": " + Mode[stepIdx]);
 
-      
-      /* These variables may or may not change in each periodic, but are calculated again here, just in case*/
-      loop_s = getPeriod(); 
-      k = k_MotorSpeed();
-
-      //System.out.println("looptime: " + loop_s);
-      //System.out.println("Motor Conversion k: " + k);
-
       /* Negative motor speed commands are not supported here
       To drive backwards, command negative distance
       To turn left, command negative angle */
       if (MotorCommands[stepIdx] <= 0) {
         setSafetyFault("Motor command is negative in drive or turn function");
       }
+
+      /* These variables may or may not change in each periodic, but are calculated again here, just in case*/
+      loop_s = getPeriod(); 
+      k = k_MotorSpeed(MotorCommands[stepIdx]);
+
+      //System.out.println("looptime: " + loop_s);
+      System.out.println("Motor Conversion k: " + k);
+
 
       /* Convert negative distance to direction */
       forward = true;
@@ -477,7 +507,8 @@ public class Robot extends TimedRobot {
 
             /* TURN works in terms of angle which converts to distance (arclength)
             (wheels turning in opposite directions) */
-            distance = (trackwidth * Math.PI * Magnitude[stepIdx]) / 360.0;
+            // TEMPORARY ADJUSTMENT * 3.11
+            distance = (trackwidth * Math.PI * 3.11 * Magnitude[stepIdx]) / 360.0;
             break;
 
           case EJECT:
@@ -567,6 +598,12 @@ public class Robot extends TimedRobot {
     
     /* Step has been initialized, calculate step commands */
     } else {
+
+      loop_s = getPeriod(); 
+      k = k_MotorSpeed(MotorCommands[stepIdx]);
+
+      //System.out.println("looptime: " + loop_s);
+      System.out.println("Motor Conversion k: " + k);
 
       /* Execute the step timer */
       if (!TimerStarted){
