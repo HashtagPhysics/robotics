@@ -184,39 +184,73 @@ public class Robot extends TimedRobot {
 
     // Calibrate: TEST Autonomous Routine
     private driveMode[] testModes = {
-      driveMode.DRIVE
+      driveMode.DRIVE,
+      driveMode.EJECT,
+      driveMode.DRIVE,
+      driveMode.TURN,
     };
     
     private double[] testMagnitudes = {
-      67 // stop just before the reef
+      67,  // stop just before the reef
+      40,  // Eject
+      -67, // Return to start
+      90,  // right 90 degrees
     };
   
     /* motor command for each step */
     private double[] testMotorCommands = {
-      0.5  
+      0.25,
+      0.5,
+      0.25,
+      0.25  
     };
 
   // Calibrate: LEFT Autonomous Routine
   private driveMode[] leftModes = {
     driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
     driveMode.EJECT,
     driveMode.DRIVE,
     driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.PAUSE,
+    driveMode.DRIVE,
+    driveMode.EJECT
   };
   
   private double[] leftMagnitudes = {
-    87,  // stop just before the reef
-    40,  // eject "inches"
-    -12, // back up 12 inches 
-    90   // turn right 90 degrees
+    60,   // forward inches
+    -55,  // left degrees
+    66,   // forward inches 
+    40,   // eject "inches"
+    -75,  // reverse inches
+    55,   // right degrees
+    150,  // forward inches
+    -124, // left degrees
+    -38,  // reverse inches
+    10,   // WAIT seconds
+    125,  // forward inches
+    40    // eject "inches"
   };
 
   /* motor command for each step */
   private double[] leftMotorCommands = {
-    0.25, 
-    0.25, 
-    0.25, 
-    0.25  
+    0.5, // DRIVE 
+    0.5, // TURN
+    0.5, // DRIVE
+    0.4,
+    0.5,
+    0.5,  
+    0.5, 
+    0.5, 
+    0.5, 
+    0.5, 
+    0.5, 
+    0,
+    0.5 
   };
 
   // Calibrate: CENTER Autonomous Routine
@@ -233,12 +267,15 @@ public class Robot extends TimedRobot {
   };
   
   private double[] centerMagnitudes = {
-    67,  // stop just before the reef "inches"
-    40,  // eject "inches"
-    -88, // reverse "inches"
-    269, // right (or left if you make negitive) "degrees"
-    88,  // forward "inches"
-    -60  // left (or right if you make positive) "degrees"
+    67,   // Forward inches
+    40,   // eject inches
+    -88,  // reverse inches
+    21,   // right degrees
+    269,  // forward inches
+    -149, // left degrees
+    -15,  // reverse inches
+    126,  // forward inches
+    40    // eject inches
   };
 
   /* motor command for each step */
@@ -254,9 +291,16 @@ public class Robot extends TimedRobot {
   // Calibrate: RIGHT Autonomous Routine
   private driveMode[] rightModes = {
     driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
     driveMode.EJECT,
     driveMode.DRIVE,
     driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.TURN,
+    driveMode.DRIVE,
+    driveMode.DRIVE,
+    driveMode.EJECT
   };
   
   private double[] rightMagnitudes = {
